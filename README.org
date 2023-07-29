@@ -1,0 +1,14 @@
+#+TITLE: My Emacs
+
+* Backlog
+** TODO Migrate my-closet to here
+** TODO Migray .emacs to my-init.el
+** TODO Store on github
+** TODO Fix font resizing on different monitors
+* Completed
+* Notes
+** my-closet
+Where I keep my skeletons.
+
+** my-racket-extras
+Custom font lock and indentations for Racket.
