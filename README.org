@@ -1,11 +1,11 @@
 #+TITLE: My Emacs
 
 * Backlog
-** TODO Migrate my-closet to here
 ** TODO Migray .emacs to my-init.el
 ** TODO Store on github
 ** TODO Fix font resizing on different monitors
 * Completed
+** DONE Migrate my-closet to here <2023-07-29 Sat>
 * Notes
 ** my-closet
 Where I keep my skeletons.
