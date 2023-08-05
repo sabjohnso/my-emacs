@@ -46,7 +46,11 @@
     define-cpointer-type
     define-optional-predicate
     define-either-predicate
-    define-jsonschema-predicate))
+    define-jsonschema-predicate
+    define/lexeme
+    define/pattern
+    define/transform
+    define/subexpression-pos-prop))
 
 (defun my-racket-extras-module-introducers ()
   "Return a list of Racket keywords introducing modules"
@@ -247,7 +251,7 @@
   (list
    (concat "([[:space:]\n]*"
 	   (regexp-opt (mapcar #'symbol-name (my-racket-extras-definition-keywords)))
-	   "[[:space:]\n]+\\([^[:space:]\n()]+\\)")
+	   "[[:space:]\n]+(\\([^[:space:]\n()]+\\)")
    1
    font-lock-function-name-face))
 
@@ -314,7 +318,15 @@
   (put 'call-with-output-file* 'scheme-indent-function 1)
   (put 'only-in 'scheme-indent-function 1)
   (put 'printf 'scheme-indent-function 1)
-  (put 'with-output-to-file 'scheme-indent-function 1))
+  (put 'with-output-to-file 'scheme-indent-function 1)
+  (put 'query-exec 'scheme-indent-function 1)
+  (put 'query-row 'scheme-indent-function 1)
+  (put 'query-rows 'scheme-indent-function 1)
+  (put 'query-list 'scheme-indent-function 1)
+  (put 'query-maybe-row 'scheme-indet-function 1)
+  (put 'query-value 'scheme-indent-function 1)
+  (put 'query-maybe-value 'scheme-indent-function 1)
+  (put 'in-query 'scheme-indent-function 1))
 
 (add-hook 'scheme-mode-hook 'my-add-racket-highlights)
 (add-hook 'scheme-mode-hook 'my-add-racket-indentation)
