@@ -326,7 +326,10 @@
   (put 'query-maybe-row 'scheme-indet-function 1)
   (put 'query-value 'scheme-indent-function 1)
   (put 'query-maybe-value 'scheme-indent-function 1)
-  (put 'in-query 'scheme-indent-function 1))
+  (put 'in-query 'scheme-indent-function 1)
+  (put 'stateful-run 'scheme-indent-function 1)
+  (put 'stateful-exec 'scheme-indent-function 1)
+  (put 'stateful-eval 'scheme-indent-function 1))
 
 (add-hook 'scheme-mode-hook 'my-add-racket-highlights)
 (add-hook 'scheme-mode-hook 'my-add-racket-indentation)
