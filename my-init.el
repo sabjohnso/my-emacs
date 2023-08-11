@@ -13,8 +13,6 @@
 
 (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
 (require 'org)
-(add-to-list 'load-path (expand-file-name "~/Sandbox/my-emacs"))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
