@@ -13,7 +13,7 @@
 
 (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
 (require 'org)
-
+(use-package org-tempo :demand)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; ... Tweaks
