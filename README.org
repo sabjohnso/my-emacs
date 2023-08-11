@@ -1,11 +1,33 @@
 #+TITLE: My Emacs
 
 * Backlog
-** TODO Migray .emacs to my-init.el
-** TODO Store on github
 ** TODO Fix font resizing on different monitors
+Ther is a bug in the font resizing function. Depending on which
+monitor is used first, the font heights will need to be adjusted.
+
+Notes:
+New functions to compute resolution did not help
+The size of the mouse pointer is also huge.
+
+** TODO Move remaining skeletons into closet
+There are still some skeletons in my-init.el.  They should be move to
+my-closet.el to improve the organization of the files.
+
+** TODO Fix the Haskell development environment
+LSP is not working right: the flycheck messages never get updated and
+there are other problems.
+
+** TODO Fix the C++ development environment
+LSP is not working.
+
+** TODO Adjust company mode delay
+Company mode is causing problems with typing because the delay is to short.
+
 * Completed
+** DONE Store on github<2023-08-05 Sat>
+** DONE Migray .emacs to my-init.el<2023-08-05 Sat>
 ** DONE Migrate my-closet to here <2023-07-29 Sat>
+
 * Notes
 ** my-closet
 Where I keep my skeletons.
