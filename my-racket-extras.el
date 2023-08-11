@@ -50,7 +50,9 @@
     define/lexeme
     define/pattern
     define/transform
-    define/subexpression-pos-prop))
+    define/subexpression-pos-prop
+    define-for-syntax
+    define-struct))
 
 (defun my-racket-extras-module-introducers ()
   "Return a list of Racket keywords introducing modules"
