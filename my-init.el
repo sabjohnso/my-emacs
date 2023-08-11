@@ -35,26 +35,51 @@
 
 (setq save-abbrevs 'silently)
 
+
+
+(defun my-get-monitor-pixels (&optional frame)
+  "Return a two element list containing the number of
+pixels for the frame's monitor."
+  (let* ((monitor (frame-monitor-attributes frame))
+	 (geometry (alist-get 'geometry monitor))
+	 (x0 (car geometry))
+	 (x1 (caddr geometry))
+	 (y0 (cadr geometry))
+	 (y1 (cadddr geometry)))
+    (list (- x1 x0)
+	  (- y1 y0))))
+
+(defun my-get-monitor-inches (&optional frame)
+  "Return the moitor size in inches"
+  (let* ((monitor (frame-monitor-attributes frame))
+	 (mm-size (alist-get 'mm-size monitor)))
+    (list (/ (car mm-size) 25.4)
+	  (/ (cadr mm-size) 25.4))))
+
+(defun my-get-monitor-resolution (&optional frame)
+  "Return the resolution in pixels per milimeter
+for the current frame or the optinally provide frame"
+  (let ((pixels (my-get-monitor-pixels frame))
+	(inches (my-get-monitor-inches frame)))
+    (list (/ (car pixels) (car inches))
+	  (/ (cadr pixels) (cadr inches)))))
+
 (defun my-adapt-font-size (&optional frame)
-  (let* ((attrs (frame-monitor-attributes frame))
-         (size (alist-get 'mm-size attrs))
-         (geometry (alist-get 'geometry attrs))
-         (ppi (/ (caddr geometry) (/ (car size) 25.4))))
+  (let* ((ppi (cadr (my-get-monitor-resolution frame))))
     (message "PPI: %s" ppi)
     (if (> ppi 120)
-        (set-face-attribute 'default frame :height 200)
-      (set-face-attribute 'default frame :height 100))))
+        (set-face-attribute 'default frame :height 100)
+      (set-face-attribute 'default frame :height 50))))
 
 
 (add-function :after after-focus-change-function #'my-adapt-font-size)
 (add-hook 'after-make-frame-functions #'my-adapt-font-size)
 
 (require 'ansi-color)
-(defun colorize-compilation-buffer ()
-
+(defun my-colorize-compilation-buffer ()
   (ansi-color-apply-on-region compilation-filter-start (point))
   (toggle-read-only))
-(add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
+(add-hook 'compilation-filter-hook 'my-colorize-compilation-buffer)
 
 (setq split-height-threshold 10000)
 
@@ -70,7 +95,8 @@
     org-mode
     scad-mode
     racket-mode)
-  "For modes in this list run `delete-trailing-whitespace` brefore saving the buffer.")
+  "For modes in this list run `delete-trailing-whitespace` brefore
+saving the buffer.")
 (global-display-line-numbers-mode)
 (add-hook 'before-save-hook
    (lambda ()           
@@ -94,14 +120,6 @@
 
 (global-set-key (kbd "C-<up>") 'my-increase-scale)
 (global-set-key (kbd "C-<down>") 'my-decrease-scale)
-
-
-(require 'ansi-color)
-(defun colorize-compilation-buffer ()
-  (toggle-read-only)
-  (ansi-color-apply-on-region compilation-filter-start (point))
-  (toggle-read-only))
-(add-hook 'compilation-filter-hook 'colorize-compilation-buffer)
 
 ;; hide emacs backup files
 (require 'dired-x)
@@ -226,6 +244,8 @@
 (add-hook 'slime-repl-mode 'paredit-mode)
 (add-hook 'scheme-mode-hook 'paredit-mode)
 (add-hook 'geiser-repl-mode-hook 'paredit-mode)
+
+
 
 
 (defun my-override-slime-repl-bindings-with-paredit ()
@@ -354,7 +374,7 @@
 	  (lambda ()
 	    (c-set-style "my")
 	    (my-add-c++-fixme-highlights)
-	    (local-set-key (kbd "<f12>" 'clang-format-buffer))
+	    (local-set-key (kbd "<f12>") 'clang-format-buffer)
 	    ;; (my-add-c++-macro-highlights)
 	    ))
 (add-hook 'c++-mode-hook 'my-add-c++-fixme-highlights)
@@ -393,8 +413,9 @@
 (add-to-list 'auto-mode-alist '("\\.xsd\\'" . xml-mode))
 (add-to-list 'auto-mode-alist `("Pipfile" . toml-mode))
 (add-to-list 'auto-mode-alist '("\\.xslt\\'" . xml-mode))
+(require 'rng-loc)
 (add-hook 'nxml-mode-hook
-	  '(lambda ()
+	  (lambda ()
 	     (make-local-variable 'indent-tabs-mode)
 	     (setq indent-tabs-mode nil)
 	     (add-to-list 'rng-schema-locating-files
