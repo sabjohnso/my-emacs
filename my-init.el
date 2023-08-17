@@ -11,9 +11,14 @@
 	("nongnu" . "https://elpa.nongnu.org/nongnu/")
 	("melpa" . "https://melpa.org/packages/")))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; ... Org
+;;
 (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
 (require 'org)
 (use-package org-tempo :demand t)
+(add-hook 'org-mode-hook 'auto-fill-mode)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; ... Tweaks
@@ -76,7 +81,7 @@ for the current frame or the optinally provide frame"
 (require 'ansi-color)
 (defun my-colorize-compilation-buffer ()
   (ansi-color-apply-on-region compilation-filter-start (point))
-  (toggle-read-only))
+  (read-only-mode 0))
 (add-hook 'compilation-filter-hook 'my-colorize-compilation-buffer)
 
 (setq split-height-threshold 10000)
@@ -193,6 +198,8 @@ saving the buffer.")
 
 ;; slime/lisp
 (use-package slime :ensure t :pin melpa)
+
+
 (add-hook 'slime-repl-mode-hook
 	  (lambda () (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
 (use-package slime-company :ensure t :pin melpa)
@@ -248,7 +255,7 @@ saving the buffer.")
 
 
 (defun my-override-slime-repl-bindings-with-paredit ()
-  (define-key slime-repl-mode-map
+  (define-key 'slime-repl-mode-map
 	      (read-kbd-macro paredit-backward-delete-key) nil))
 (add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
 
@@ -295,7 +302,7 @@ saving the buffer.")
     (statement-cont . +)
     (inline-open . 0)
     (inexpr-class . 0))))
-
+(use-package compiler-explorer :ensure t :pin melpa)
 (use-package pickle :ensure t :pin melpa)
 (use-package cmake-mode :ensure t :pin melpa)
 (use-package cmake-font-lock :ensure t :pin melpa)
@@ -377,7 +384,6 @@ saving the buffer.")
 	    ;; (my-add-c++-macro-highlights)
 	    ))
 (add-hook 'c++-mode-hook 'my-add-c++-fixme-highlights)
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; ... Python

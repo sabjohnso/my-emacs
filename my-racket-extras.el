@@ -103,6 +103,7 @@
     let/arrow
     call-with-input-file
     call-with-input-file*
+    call-with-input-bytes
     with-input-from-file
     call-with-output-file
     call-with-output-file*
@@ -315,6 +316,7 @@
   (put 'class* 'scheme-indent-function 2)
   (put 'call-with-input-file 'scheme-indent-function 1)
   (put 'call-with-input-file* 'scheme-indent-function 1)
+  (put 'call-with-input-bytes 'scheme-indent-function 1)
   (put 'with-input-from-file 'scheme-indent-function 1)
   (put 'call-with-output-file 'scheme-indent-function 1)
   (put 'call-with-output-file* 'scheme-indent-function 1)
