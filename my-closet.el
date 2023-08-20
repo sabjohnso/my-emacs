@@ -72,6 +72,37 @@
   str "(" _ "){}")
 
 
+(define-skeleton my-c++-customization-point-skeleton
+  "Skeleton of a C++ customization point"
+  "method name: "
+  > "namespace details {" \n
+  > \n
+  > "template<typename T>" \n
+  > "void " \n
+  > "get_" str "_impl(Type<T>){}" \n
+  > \n
+  > "struct Get_" (capitalize str) "{" \n
+  > "template<typename T>" \n
+  > "constexpr auto" \n
+  > "operator ()(Type<T>) const {" \n
+  > "return get_" str "_impl(type<T>);" \n
+  > "}" \n
+  > "};" \n
+  > \n
+  > "} // end of namespace details " \n
+  > \n
+  > "constexpr auto& get_" str " = details::static_const<details::Get_" (capitalize str) ">;" \n
+  > \n
+  > "namespace concepts {" \n
+  > "template<typename T>" \n
+  > "concept Has_" (capitalize str) " = (! std::same_as<void, decltype(get_" str "(type<T>))>);" \n
+  > "} // end of namespace concepts" \n
+  > "constexpr auto " str " = []<" _ ">(){}" \n
+  > \n)
+
+(with-eval-after-load 'c++-mode
+  (define-abbrev c++-mode-abbrev-table "skcust" "" 'my-c++-customization-point-skeleton))
+
 ;;
 ;; ... JSON
 ;;
