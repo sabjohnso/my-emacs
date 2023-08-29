@@ -102,7 +102,7 @@ for the current frame or the optinally provide frame"
 saving the buffer.")
 (global-display-line-numbers-mode)
 (add-hook 'before-save-hook
-   (lambda ()           
+   (lambda ()
      (when (member major-mode my-delete-trailing-whitespace-mode-list)
        (delete-trailing-whitespace))))
 
@@ -137,6 +137,8 @@ saving the buffer.")
 ;;;
 ;;; ... General Development
 ;;
+(use-package highlight-thing :ensure t)
+(use-package highlight-unique-symbol :ensure t
 (use-package paredit-everywhere :ensure t :pin melpa)
 (use-package paredit-menu :ensure t :pin melpa)
 (use-package flycheck-projectile :ensure t :pin melpa)
@@ -226,7 +228,7 @@ saving the buffer.")
 ;; (use-package dr-racket-like-unicode :ensure t :pin melpa
 ;;   :hook (scheme-mode . dr-racket-like-unicode))
 
-(add-hook 'geiser-repl-mode-hook	  
+(add-hook 'geiser-repl-mode-hook
 	  (lambda ()
 	    (local-set-key (kbd "C-a") 'move-beginning-of-line)
 	    (local-set-key (kbd "<f12>") 'geiser-repl-clear-buffer)))
@@ -287,11 +289,21 @@ saving the buffer.")
 ;;; ... C++ Development
 ;;;
 (use-package modern-cpp-font-lock :ensure t)
+;; (use-package company-c-headers :ensure t)
+;; (use-package cpp-auto-include :ensure t)
+;; (use-package cpputils-cmake :ensure t) ; this probably doesn't work
+;; (use-package demangle-mode :endsure t) ;
+;; (use-package disaster :ensure t) ; this shoud dissasemble code at point
+;; (use-package function-args :ensure t) ; C++ completion for GNU Emacs
+;; (use-package irony :ensure t) ; C/C++ minor mode powered by libclang
+;; (use-package irony-eldoc :ensure t) ; irony-mode support for eldoc-mode
+(use-package doxy-graph-mode :ensure t)
+(use-package highlight-doxygen :ensure t))
 (require 'cc-styles)
 (add-to-list
  'c-style-alist
  '("my"
-   (c-basic-offset . 2)
+   (c-basic-offset . 3)
    (c-comment-only-line-offset . 0)
    (c-offsets-alist
     (statement-block-intro . +)
@@ -368,6 +380,70 @@ saving the buffer.")
    '(("\\b\\([$]\\w+\\)" 1 font-lock-warning-face prepend)
      ("\\b\\([A-Z_][A-Z_]+\\)\\b" 1 font-lock-warning-face))))
 
+(defun my-c++-catch2-keywords ()
+  "Return a list of keywords to add for Catch2 highlighting"
+  '(TEST_CASE
+    SECTION
+    GIVEN
+    THEN
+    WHEN
+    AND_GIVEN
+    AND_THEN
+    AND_WHEN
+    TEMPLATE_TEST_CASE
+    TEMPLATE_PRODUCT_TEST_CASE
+    TEMPLATE_TEST_CASE_SIG
+    TEMPLATE_PRODUCT_TEST_CASE_SIG
+    TEST_CASE_METHOD
+    CATCH_REGISTER_LISTENER
+    GENERATE
+    CHECKED_IF
+    CHECK_NOFAIL
+    SUCEED
+    STATIC_REQUIRE
+    STATIC_REQUIRE_FALSE
+    STATIC_CHECK
+    STATIC_CHECK_FALSE
+    DYNAMIC_SECTION
+    REQUIRE_STATIC
+    REQUIRE
+    CHECK
+    REQUIRE_FALSE
+    CHECK_FALSE
+    REQUIRE_NOTHROW
+    CHECK_NOTHROW
+    REQUIRE_THROWS
+    CHECK_THROWS
+    REQUIRE_THROWS_AS
+    CHECK_THROWS_AS
+    REQUIRE_THROWS_WITH
+    CHECK_THROWS_WITH
+    REQUIRE_THAT
+    CHECK_THAT
+    REQUIRE_THROWS_THAT
+    CHECK_THROWS_THAT
+    INFO
+    UNSCOPED_INFO
+    WARN
+    FAIL
+    FAIL_CHECK
+    CAPTURE
+    BENCHMARK
+    BENCHMARK_ADVANCED))
+(use-package pcre2el :ensure t :pin melpa)
+(require 'pcre2el)
+
+(defun my-c++-catch2-keywords-pattern ()
+  "Return a pattern recognizing chatch2 macros"
+  (concat "\\b\\("
+	  (regexp-opt (mapcar #'symbol-name (my-c++-catch2-keywords)))
+	  "\\)\\b"))
+(defun my-add-c++-catch2-keywords ()
+  (interactive)
+  (font-lock-add-keywords
+   nil
+   `((,(my-c++-catch2-keywords-pattern) 1 font-lock-warning-face))))
+
 
 (defvar my-clang-format-on-save-enabled t)
 (defun my-clang-format-on-save ()
@@ -380,10 +456,11 @@ saving the buffer.")
 	  (lambda ()
 	    (c-set-style "my")
 	    (my-add-c++-fixme-highlights)
+	    (my-add-c++-catch2-keywords)
 	    (local-set-key (kbd "<f12>") 'clang-format-buffer)
 	    ;; (my-add-c++-macro-highlights)
 	    ))
-(add-hook 'c++-mode-hook 'my-add-c++-fixme-highlights)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; ... Python
