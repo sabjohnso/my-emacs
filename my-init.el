@@ -15,7 +15,7 @@
 ;;
 ;; ... Org
 ;;
-(add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
+;; (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
 (require 'org)
 (use-package org-tempo :demand t)
 (add-hook 'org-mode-hook 'auto-fill-mode)
@@ -78,11 +78,11 @@ for the current frame or the optinally provide frame"
 (add-function :after after-focus-change-function #'my-adapt-font-size)
 (add-hook 'after-make-frame-functions #'my-adapt-font-size)
 
-(require 'ansi-color)
-(defun my-colorize-compilation-buffer ()
-  (ansi-color-apply-on-region compilation-filter-start (point))
-  (read-only-mode 0))
-(add-hook 'compilation-filter-hook 'my-colorize-compilation-buffer)
+(setq compilation-environment '("TERM=xterm-256color"))
+(add-hook 'compilation-mode-hook (lambda () (toggle-truncate-lines 1)))
+(use-package ansi-color
+  :hook (compilation-filter . ansi-color-compilation-filter))
+
 
 (setq split-height-threshold 10000)
 
@@ -137,8 +137,10 @@ saving the buffer.")
 ;;;
 ;;; ... General Development
 ;;
+(use-package rtags :ensure t)
+(use-package company-rtags :ensure t)
 (use-package highlight-thing :ensure t)
-(use-package highlight-unique-symbol :ensure t
+;; (use-package highlight-unique-symbol :ensure t)
 (use-package paredit-everywhere :ensure t :pin melpa)
 (use-package paredit-menu :ensure t :pin melpa)
 (use-package flycheck-projectile :ensure t :pin melpa)
@@ -200,6 +202,7 @@ saving the buffer.")
 
 ;; slime/lisp
 (use-package slime :ensure t :pin melpa)
+
 
 
 (add-hook 'slime-repl-mode-hook
@@ -288,6 +291,12 @@ saving the buffer.")
 ;;;
 ;;; ... C++ Development
 ;;;
+(use-package doxy-graph-mode :ensure t)
+(require 'doxy-graph-mode)
+
+(add-hook 'c-mode-hook 'doxy-graph-mode)
+(add-hook 'c++-mode-hook 'doxy-graph-mode)
+(add-hook 'python-mode-hook 'doxy-graph-mode)
 (use-package modern-cpp-font-lock :ensure t)
 ;; (use-package company-c-headers :ensure t)
 ;; (use-package cpp-auto-include :ensure t)
@@ -295,10 +304,14 @@ saving the buffer.")
 ;; (use-package demangle-mode :endsure t) ;
 ;; (use-package disaster :ensure t) ; this shoud dissasemble code at point
 ;; (use-package function-args :ensure t) ; C++ completion for GNU Emacs
-;; (use-package irony :ensure t) ; C/C++ minor mode powered by libclang
+(use-package irony :ensure t) ; C/C++ minor mode powered by libclang
 ;; (use-package irony-eldoc :ensure t) ; irony-mode support for eldoc-mode
-(use-package doxy-graph-mode :ensure t)
-(use-package highlight-doxygen :ensure t))
+(use-package doxy-graph-mode :ensure t
+    :hook ((c++-mode . doxy-graph-mode)
+	   (c-mode . doxy-graph-mode)
+	   (python-mode . doxy-graph-mode)))
+
+(use-package highlight-doxygen :ensure t)
 (require 'cc-styles)
 (add-to-list
  'c-style-alist
@@ -477,6 +490,19 @@ saving the buffer.")
   :hook (python-mode . python-black-on-save-mode))
 ;; (use-package jedi-direx :ensure t :pin melpa)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; ... OCaml
+;;;
+(use-package dune :ensure t :pin melpa)
+(use-package dune-format :ensure t :pin melpa)
+(use-package merlin :ensure t :pin melpa)
+(use-package merlin-company :ensure t :pin melpa                )
+(use-package merlin-eldoc :ensure t :pin melpa)
+(use-package merlin-iedit :ensure t :pin melpa)
+;; (use-package ocaml-format :ensure t :pin melpa)
+(use-package opam-switch-mode :ensure t :pin melpa)
+(use-package tuareg :ensure t :pin melpa)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
