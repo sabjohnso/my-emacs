@@ -1,28 +1,33 @@
 ;;; my-init.el
-
+(require 'package)
 (require 'use-package)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Packages and paths
-;;;
+;;
+;; ... Packages and paths
+;;
+
 (setq package-archives
       '(("gnu" . "https://elpa.gnu.org/packages/")
 	("nongnu" . "https://elpa.nongnu.org/nongnu/")
 	("melpa" . "https://melpa.org/packages/")))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Org
 ;;
+
 ;; (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
 (require 'org)
 (use-package org-tempo :demand t)
 (add-hook 'org-mode-hook 'auto-fill-mode)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Tweaks
-;;;
+;;
+;; ... Tweaks
+;;
+
 (set-frame-font
  '(:family "DejaVu Sans Mono"
 	   :foundry "PfEd"
@@ -71,15 +76,58 @@ for the current frame or the optinally provide frame"
   (let* ((ppi (cadr (my-get-monitor-resolution frame))))
     (message "PPI: %s" ppi)
     (if (> ppi 120)
-        (set-face-attribute 'default frame :height 100)
-      (set-face-attribute 'default frame :height 50))))
+        (set-face-attribute 'default frame :height 200)
+      (set-face-attribute 'default frame :height 100))))
 
 
-(add-function :after after-focus-change-function #'my-adapt-font-size)
-(add-hook 'after-make-frame-functions #'my-adapt-font-size)
+(defvar my-face-scale-factor 0.1
+  "The factor by which the default font is
+scaled when increasing or decreasing the the
+height of the font.")
 
-(setq compilation-environment '("TERM=xterm-256color"))
-(add-hook 'compilation-mode-hook (lambda () (toggle-truncate-lines 1)))
+(defun my-get-default-font-height (&optional frame)
+  "Return the default font height"
+  (face-attribute 'default :height))
+
+(defun my-next-bigger-font-height (&optional frame)
+  "Return the next bigger font height"
+  (round (* (+ 1 my-face-scale-factor)
+	    (my-get-default-font-height frame))))
+
+(defun my-next-smaller-font-height (&optional frame)
+  "Return the next smaller default font height"
+  (round (* (- 1 my-face-scale-factor)
+	    (my-get-default-font-height frame))))
+
+(defun my-increase-font-size (&optional frame)
+  "Increase the default font size"
+  (interactive)
+  (set-face-attribute
+   'default frame
+   :height (my-next-bigger-font-height)))
+
+(defun my-decrease-font-size (&optional frame)
+  "Decrease the default font size"
+  (interactive)
+  (set-face-attribute
+   'default frame
+   :height (my-next-smaller-font-height)))
+
+(defun my-set-global-font-size-keys ()
+  (interactive)
+  (global-set-key (kbd "C-=") 'my-increase-font-size)
+  (global-set-key (kbd "C-M-=") 'my-decrease-font-size))
+
+(my-set-global-font-size-keys)
+
+
+;;(add-function :after after-focus-change-function #'my-adapt-font-size)
+;; (add-hook 'after-make-frame-functions #'my-adapt-font-size)
+
+(with-eval-after-load 'compile
+  (setq compilation-environment '("TERM=xterm-256color"))
+  (add-hook 'compilation-mode-hook (lambda () (toggle-truncate-lines 1))))
+
 (use-package ansi-color
   :hook (compilation-filter . ansi-color-compilation-filter))
 
@@ -133,10 +181,14 @@ saving the buffer.")
 (use-package pcre2el :ensure t :pin melpa)
 (use-package sr-speedbar :ensure t :pin melpa)
 
+
+(add-to-list 'auto-mode-alist '("\\.cheat\\'" . shell-script-mode))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; ... General Development
-;;
+;;;
+
 (use-package rtags :ensure t)
 (use-package company-rtags :ensure t)
 (use-package highlight-thing :ensure t)
@@ -168,12 +220,13 @@ saving the buffer.")
 ;;
 ;; ... Haskell
 ;;
+
 (use-package haskell-mode :ensure t :pin melpa)
 ;; (use-package dante :ensure t :pin melpa) Development mode for Haskell
 (use-package  ac-haskell-process :ensure t :pin melpa) ;; Haskell auto-complete source which uses the current haskell process
 (use-package flycheck-haskell :ensure t :pin melpa) ;; not sure what this uses but it says automatic
 ;; (use-package flycheck-liquidhs :ensure t :pin melpa) ;; it uses liquidhaskell (what is that)
-;;(use-package flymake-haskell-multi :ensure t :pin melpa) ;; it uses hlint and ghc
+;; (use-package flymake-haskell-multi :ensure t :pin melpa) ;; it uses hlint and ghc
 ;; (use-package flymake-hlint :ensure t :pin melpa) ;; it uses hlint
 
 ;; (use-package ghc-imported-from :ensure t :pin melpa ) ;; Haskell documentation lookup with ghc-imported-from
@@ -189,16 +242,18 @@ saving the buffer.")
 (use-package ormolu :ensure t :pin melpa) ;;Format Haskell source code using the "ormolu" program
 ;; (use-package retrie :ensure t :pin melpa) ;; Refactoring Haskell code with retrie
 ;; (use-package shm :ensure t :pin melpa)  ;; Structured Haskell Mode
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Julia
-;;;
+;;
+;; ... Julia
+;;
+
 (use-package julia-repl :ensure t :pin melpa)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Lisp Development
-;;;
+;;
+;; ... Lisp Development
+;;
 
 ;; slime/lisp
 (use-package slime :ensure t :pin melpa)
@@ -211,12 +266,15 @@ saving the buffer.")
 (use-package company :ensure t :pin melpa)
 (use-package racket-mode :ensure t :pin melpa)
 (use-package scribble-mode :ensure t :pin melpa)
-(require 'slime-autoloads)
+
 
 (use-package clojure-mode :ensure t :pin melpa)
 (use-package cider :ensure t :pin melpa)
-(setq slime-lisp-implementations
-      '((sbcl ("/usr/bin/sbcl") :coding-system utf-8-unix)))
+
+(with-eval-after-load
+ 'slime
+ (setq slime-lisp-implementations
+       '((sbcl ("/usr/bin/sbcl") :coding-system utf-8-unix))))
 
 ;; scheme
 (use-package geiser-racket :ensure t :pin melpa)
@@ -240,30 +298,28 @@ saving the buffer.")
 ;; paredit
 (use-package paredit :ensure t :pin melpa)
 
+;; (defun my-override-slime-repl-bindings-with-paredit ()
+;;   (define-key 'slime-repl-mode-map
+;; 	      (read-kbd-macro paredit-backward-delete-key) nil))
+
 (defun my-fix-paredit ()
   (interactive)
   (define-key paredit-mode-map (kbd "RET") nil)
   (define-key paredit-mode-map (kbd "C-j") 'paredit-newline))
 
 (with-eval-after-load 'paredit
-  (my-fix-paredit))
+  (define-key paredit-mode-map (kbd "RET") nil)
+  (define-key paredit-mode-map (kbd "C-j") 'paredit-newline)
 
-(add-hook 'emacs-lisp-mode-hook 'paredit-mode)
-(add-hook 'inferior-emacs-lisp-mode-hook 'paredit-mode)
-(add-hook 'lisp-mode-hook 'paredit-mode)
-(add-hook 'slime-repl-mode 'paredit-mode)
-(add-hook 'scheme-mode-hook 'paredit-mode)
-(add-hook 'geiser-repl-mode-hook 'paredit-mode)
-(add-hook 'racket-mode 'paredit-mode)
-
-
-
-
-(defun my-override-slime-repl-bindings-with-paredit ()
-  (define-key 'slime-repl-mode-map
-	      (read-kbd-macro paredit-backward-delete-key) nil))
-(add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
-
+  (add-hook 'emacs-lisp-mode-hook 'paredit-mode)
+  (add-hook 'inferior-emacs-lisp-mode-hook 'paredit-mode)
+  (add-hook 'lisp-mode-hook 'paredit-mode)
+  (add-hook 'slime-repl-mode 'paredit-mode)
+  (add-hook 'scheme-mode-hook 'paredit-mode)
+  (add-hook 'geiser-repl-mode-hook 'paredit-mode)
+  (add-hook 'racket-mode 'paredit-mode)
+;;  (add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
+  )
 
 (defun my-add-lisp-keywords ()
   (interactive)
@@ -285,18 +341,21 @@ saving the buffer.")
 ;;
 ;; ... Erlang
 ;;
+
 (use-package edts :ensure t :pin melpa)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... C++ Development
-;;;
-(use-package doxy-graph-mode :ensure t)
-(require 'doxy-graph-mode)
+;;
+;; ... C++ Development
+;;
 
-(add-hook 'c-mode-hook 'doxy-graph-mode)
-(add-hook 'c++-mode-hook 'doxy-graph-mode)
-(add-hook 'python-mode-hook 'doxy-graph-mode)
+;; (use-package doxy-graph-mode :ensure t)
+;; (require 'doxy-graph-mode)
+
+;; (add-hook 'c-mode-hook 'doxy-graph-mode)
+;; (add-hook 'c++-mode-hook 'doxy-graph-mode)
+;; (add-hook 'python-mode-hook 'doxy-graph-mode)
+
 (use-package modern-cpp-font-lock :ensure t)
 ;; (use-package company-c-headers :ensure t)
 ;; (use-package cpp-auto-include :ensure t)
@@ -353,7 +412,7 @@ saving the buffer.")
    '(("\\([*][*][*]Failed\\)" 1 compilation-fail-face)
      ("\\(Passed\\)" 1 compilation-pass-face)))
   (font-lock-ensure))
-(add-hook 'compilation-mode-hook 'my-add-compilation-keywords)
+;; (add-hook 'compilation-mode-hook 'my-add-compilation-keywords)
 ;; (use-package cmake-ide :ensure t :pin melpa)
 ;; (use-package rtags :ensure t :pin melpa)
 ;; (use-package flycheck-rtags :ensure t :pin melpa)
@@ -361,20 +420,21 @@ saving the buffer.")
 (use-package clang-format :ensure t :pin melpa)
 (use-package clang-format+ :ensure t :pin melpa)
 
-(add-to-list 'cmake-font-lock-function-keywords-alist
-	     '("find_package_handle_standard_args" .
-	       ("FOUND_VAR" "REQUIRED_VARS" "VERSION_VAR" "HANDLE_VERSION_RANGE"
-		"CONFIG_MODE" "REASON_FAILURE_MESSAGE" "FAIL_MESSAGE")))
-(add-to-list 'cmake-font-lock-function-keywords-alist
-	     '("parse_args" .
-	       ("PREFIX" "BOOLEAN_KEYWORDS" "SINGLE_VALUE_KEYWORDS"
-		"MULTI_VALUE_KEYWORDS" "REQUIRED" "ARGV")))
-(add-to-list 'cmake-font-lock-function-keywords-alist
-	     '("racket_add_executable" .
-	       ("NAME" "SOURCE")))
-(add-to-list 'cmake-font-lock-function-keywords-alist
-	     '("raco_add_package" .
-	       ("PACKAGE_PATH" "DEPENDS")))
+(with-eval-after-load 'cmake-font-lock
+  (add-to-list 'cmake-font-lock-function-keywords-alist
+	       '("find_package_handle_standard_args" .
+		 ("FOUND_VAR" "REQUIRED_VARS" "VERSION_VAR" "HANDLE_VERSION_RANGE"
+		  "CONFIG_MODE" "REASON_FAILURE_MESSAGE" "FAIL_MESSAGE")))
+  (add-to-list 'cmake-font-lock-function-keywords-alist
+	       '("parse_args" .
+		 ("PREFIX" "BOOLEAN_KEYWORDS" "SINGLE_VALUE_KEYWORDS"
+		  "MULTI_VALUE_KEYWORDS" "REQUIRED" "ARGV")))
+  (add-to-list 'cmake-font-lock-function-keywords-alist
+	       '("racket_add_executable" .
+		 ("NAME" "SOURCE")))
+  (add-to-list 'cmake-font-lock-function-keywords-alist
+	       '("raco_add_package" .
+		 ("PACKAGE_PATH" "DEPENDS"))))
 
 ;; (require 'rtags)
 ;; (cmake-ide-setup)
@@ -459,9 +519,11 @@ saving the buffer.")
 
 
 (defvar my-clang-format-on-save-enabled t)
-(defun my-clang-format-on-save ()
-  (when (and my-clang-format-on-save-enabled (eq major-mode 'c++-mode))
-    (clang-format-buffer)))
+(with-eval-after-load 'clang-format
+  
+  (defun my-clang-format-on-save ()
+    (when (and my-clang-format-on-save-enabled (eq major-mode 'c++-mode))
+      (clang-format-buffer))))
 
 (add-hook 'before-save-hook 'my-clang-format-on-save)
 (add-hook 'c++-mode-hook 'clang-format+-mode)
@@ -475,13 +537,13 @@ saving the buffer.")
 	    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Python
+;;
+;; ... Python
+;;
+
 (use-package pipenv :ensure t :pin melpa)
 (use-package pipenv
-  :hook (python-mode . pipenv-mode)
-  :init
-  (setq pipenv-projectile-after-switch-function #'pipenv-projectile-after-switch-extended))
+  :hook (python-mode . pipenv-mode))
 
 (use-package jedi :ensure t :pin melpa)
 (use-package company-jedi :ensure t :pin melpa)
@@ -489,11 +551,15 @@ saving the buffer.")
 (use-package python-black :ensure t :pin melpa
   :hook (python-mode . python-black-on-save-mode))
 ;; (use-package jedi-direx :ensure t :pin melpa)
+(when (executable-find "ipython")
+  (setq python-shell-interpreter "ipython"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... OCaml
-;;;
+;;
+;; ... OCaml
+;;
+
+(use-package utop :ensure t :pin melpa)
 (use-package dune :ensure t :pin melpa)
 (use-package dune-format :ensure t :pin melpa)
 (use-package merlin :ensure t :pin melpa)
@@ -511,9 +577,10 @@ saving the buffer.")
 (use-package powershell :ensure t :pin melpa)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Text Formats
-;;;
+;;
+;; ... Text Formats
+;;
+
 (use-package json-mode :ensure t :pin melpa)
 (use-package json-par :ensure t :pin melpa)
 (use-package toml-mode :ensure t :pin melpa)
@@ -530,48 +597,54 @@ saving the buffer.")
 			  (expand-file-name "~/.emacs.d/nxml-schemas/schemas.xml"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Grammars
-;;;
+;;
+;; ... Grammars
+;;
+
 (use-package bnf-mode :ensure t :pin melpa)
 (use-package ebnf-mode :ensure t :pin melpa)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Text and documentation
-;;;
+;;
+;; ... Text and documentation
+;;
+
 (use-package markdown-mode :ensure t :pin melpa)
 (use-package markdown-preview-eww :ensure t :pin melpa)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Solid Modeling
-;;;
+;;
+;; ... Solid Modeling
+;;
+
 (use-package scad-mode :ensure t :pin melpa)
 (add-hook 'scad-mode-hook 'display-line-numbers-mode)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Environment Modules
-;;;
+;;
+;; ... Environment Modules
+;;
+
 (load "/usr/local/Modules/init/lisp")
 (add-to-list 'magic-mode-alist '("#%Module.*" . tcl-mode))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;;
-;;; ... Bullshit
-;;;
+;;
+;; ... Bullshit
+;;
 
 (use-package chatgpt-shell :ensure t :pin melpa)
-(setq chatgpt-shell-openai-key "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")
+(with-eval-after-load 'chatgpt-shell
+ (setq chatgpt-shell-openai-key "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"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;;; ... My Stuff
+;; ... My Stuff
 ;;
+
 (require 'my-closet)
 (require 'my-racket-extras)
 
