@@ -188,7 +188,7 @@ saving the buffer.")
 ;;;
 ;;; ... General Development
 ;;;
-
+(use-package direnv :ensure t :pin melpa)
 (use-package rtags :ensure t)
 (use-package company-rtags :ensure t)
 (use-package highlight-thing :ensure t)
@@ -535,7 +535,13 @@ saving the buffer.")
 	    (local-set-key (kbd "<f12>") 'clang-format-buffer)
 	    ;; (my-add-c++-macro-highlights)
 	    ))
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; ... Rust
+;;
+(use-package cargo :ensure t :pin melpa)
+(use-package cargo-mode :ensure t :pin melpa)
+(use-package rust-mode :ensure t :pin melpa)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Python
@@ -569,6 +575,11 @@ saving the buffer.")
 ;; (use-package ocaml-format :ensure t :pin melpa)
 (use-package opam-switch-mode :ensure t :pin melpa)
 (use-package tuareg :ensure t :pin melpa)
+
+(add-hook 'tuareg-mode-hook #'merlin-mode)
+(add-hook 'caml-mode-hook #'merlin-mode)
+(add-hook 'tuareg-mode-hook #'paredit-mode)
+(add-hook 'dune-mode-hook #'paredit-mode)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
