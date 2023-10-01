@@ -18,8 +18,7 @@
   "main(int" _ ", char**){" \n
   "return 0;" \n
   "}" \n)
-(with-eval-after-load 'c++-mode
-    (define-abbrev c++-mode-abbrev-table "skmain" "" 'my-c++-main-skeleton))
+(define-abbrev c++-mode-abbrev-table "skmain" "" 'my-c++-main-skeleton)
 
 (define-skeleton my-c++-include-section-skeleton
   "Skeleton for a group of C++ include statements"
@@ -34,8 +33,8 @@
   "Skeleton of an include derective"
   nil
   "#include <" _ ">")
-(with-eval-after-load 'c++-mode
-  (define-abbrev c++-mode-abbrev-table "skinc" "" 'my-c++-include-skeleton))
+(define-abbrev c++-mode-abbrev-table "skinc" "" 'my-c++-include-skeleton)
+
 
 (define-skeleton my-c++-namespace-skeleton
   "Skeleton of a C++ namespace"
@@ -43,9 +42,8 @@
   > "namespace " str "{" \n
   > _ \n
   > "} // end of namespace " str \n)
+(define-abbrev c++-mode-abbrev-table "skns" "" 'my-c++-namespace-skeleton)
 
-(with-eval-after-load 'c++-mode
-  (define-abbrev c++-mode-abbrev-table "skns" "" 'my-c++-namespace-skeleton))
 
 (define-skeleton my-c++-class-skeleton
   "Skeleton of a C++ class"
@@ -57,8 +55,8 @@
   > "public:" \n
   > "private:" \n
   > "} // end of class " str \n)
-(with-eval-after-load 'c++-mode
-    (define-abbrev c++-mode-abbrev-table "skcls" "" 'my-c++-namespace-skeleton))
+(define-abbrev c++-mode-abbrev-table "skcls" "" 'my-c++-namespace-skeleton)
+
 
 (define-skeleton my-c++-template-parameter-list-skeleton
   "Skeleton of C++ template parametrers"
@@ -99,9 +97,8 @@
   > "} // end of namespace concepts" \n
   > "constexpr auto " str " = []<" _ ">(){}" \n
   > \n)
+(define-abbrev c++-mode-abbrev-table "skcust" "" 'my-c++-customization-point-skeleton)
 
-(with-eval-after-load 'c++-mode
-  (define-abbrev c++-mode-abbrev-table "skcust" "" 'my-c++-customization-point-skeleton))
 
 ;;
 ;; ... JSON
