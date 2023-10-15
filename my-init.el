@@ -317,7 +317,7 @@ saving the buffer.")
   (add-hook 'slime-repl-mode 'paredit-mode)
   (add-hook 'scheme-mode-hook 'paredit-mode)
   (add-hook 'geiser-repl-mode-hook 'paredit-mode)
-  (add-hook 'racket-mode 'paredit-mode)
+  (add-hook 'racket-mode-hook 'paredit-mode)
 ;;  (add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
   )
 
