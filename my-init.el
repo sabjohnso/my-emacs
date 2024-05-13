@@ -1,4 +1,4 @@
-;;; my-init.el
+;;; my-init.el -*- lexical-binding: t -*-
 (require 'package)
 (require 'use-package)
 
@@ -11,6 +11,8 @@
       '(("gnu" . "https://elpa.gnu.org/packages/")
 	("nongnu" . "https://elpa.nongnu.org/nongnu/")
 	("melpa" . "https://melpa.org/packages/")))
+
+(use-package el-get :ensure t :pin melpa)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -28,12 +30,15 @@
 ;; ... Tweaks
 ;;
 
+;; down with tabs
+(setq-default indent-tabs-mode nil)
+
 (set-frame-font
  '(:family "DejaVu Sans Mono"
 	   :foundry "PfEd"
 	   :slant normal
 	   :weight normal
-	   :height 105
+	   :height 85
 	   :width normal))
 
 (tool-bar-mode 0)
@@ -125,8 +130,8 @@ height of the font.")
 ;; (add-hook 'after-make-frame-functions #'my-adapt-font-size)
 
 (with-eval-after-load 'compile
-  (setq compilation-environment '("TERM=xterm-256color"))
-  (add-hook 'compilation-mode-hook (lambda () (toggle-truncate-lines 1))))
+  (setq compilation-environment '("TERM=xterm-256color")))
+
 
 (use-package ansi-color
   :hook (compilation-filter . ansi-color-compilation-filter))
@@ -145,10 +150,13 @@ height of the font.")
     lisp-mode
     org-mode
     scad-mode
-    racket-mode)
+    racket-mode
+    dockerfile-mode
+    scribble-mode
+    tuareg-mode)
   "For modes in this list run `delete-trailing-whitespace` brefore
 saving the buffer.")
-(global-display-line-numbers-mode)
+
 (add-hook 'before-save-hook
    (lambda ()
      (when (member major-mode my-delete-trailing-whitespace-mode-list)
@@ -188,6 +196,7 @@ saving the buffer.")
 ;;;
 ;;; ... General Development
 ;;;
+(use-package dockerfile-mode :ensure t :pin melpa)
 (use-package direnv :ensure t :pin melpa)
 (use-package rtags :ensure t)
 (use-package company-rtags :ensure t)
@@ -255,17 +264,25 @@ saving the buffer.")
 ;; ... Lisp Development
 ;;
 
+;; emacs lisp
+(add-hook 'emacs-lisp-mode-hook
+          (lambda ()
+            (local-set-key (kbd "C-c C-c") 'comment-region)))
+
 ;; slime/lisp
 (use-package slime :ensure t :pin melpa)
+(require 'slime)
+;; (defun my-override-slime-repl-bindings-with-paredit ()
+;;   (interactive)
+;;   (keymap-unset slime-repl-mode-map
+;; 	      (read-kbd-macro paredit-backward-delete-key)))
 
-
-
-(add-hook 'slime-repl-mode-hook
-	  (lambda () (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
+;; (add-hook 'slime-repl-mode-hook (lambda () (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
 (use-package slime-company :ensure t :pin melpa)
 (use-package company :ensure t :pin melpa)
 (use-package racket-mode :ensure t :pin melpa)
 (use-package scribble-mode :ensure t :pin melpa)
+(use-package hy-mode :ensure t :pin melpa)
 
 
 (use-package clojure-mode :ensure t :pin melpa)
@@ -297,29 +314,30 @@ saving the buffer.")
 
 ;; paredit
 (use-package paredit :ensure t :pin melpa)
+(require 'paredit)
+(defun my-override-slime-repl-bindings-with-paredit ()
+  (define-key 'slime-repl-mode-map
+	      (read-kbd-macro paredit-backward-delete-key) nil))
 
-;; (defun my-override-slime-repl-bindings-with-paredit ()
-;;   (define-key 'slime-repl-mode-map
-;; 	      (read-kbd-macro paredit-backward-delete-key) nil))
+(define-key paredit-mode-map (kbd "RET") nil)
+(define-key paredit-mode-map (kbd "C-j") 'paredit-newline)
+
+(add-hook 'emacs-lisp-mode-hook 'paredit-mode)
+(add-hook 'inferior-emacs-lisp-mode-hook 'paredit-mode)
+(add-hook 'lisp-mode-hook 'paredit-mode)
+(add-hook 'slime-repl-mode 'paredit-mode)
+(add-hook 'scheme-mode-hook 'paredit-mode)
+(add-hook 'geiser-repl-mode-hook 'paredit-mode)
+(add-hook 'racket-mode-hook 'paredit-mode)
+(add-hook 'hy-mode-hook 'paredit-mode)
+
+;;  (add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
+
 
 (defun my-fix-paredit ()
   (interactive)
   (define-key paredit-mode-map (kbd "RET") nil)
   (define-key paredit-mode-map (kbd "C-j") 'paredit-newline))
-
-(with-eval-after-load 'paredit
-  (define-key paredit-mode-map (kbd "RET") nil)
-  (define-key paredit-mode-map (kbd "C-j") 'paredit-newline)
-
-  (add-hook 'emacs-lisp-mode-hook 'paredit-mode)
-  (add-hook 'inferior-emacs-lisp-mode-hook 'paredit-mode)
-  (add-hook 'lisp-mode-hook 'paredit-mode)
-  (add-hook 'slime-repl-mode 'paredit-mode)
-  (add-hook 'scheme-mode-hook 'paredit-mode)
-  (add-hook 'geiser-repl-mode-hook 'paredit-mode)
-  (add-hook 'racket-mode-hook 'paredit-mode)
-;;  (add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
-  )
 
 (defun my-add-lisp-keywords ()
   (interactive)
@@ -375,7 +393,7 @@ saving the buffer.")
 (add-to-list
  'c-style-alist
  '("my"
-   (c-basic-offset . 3)
+   (c-basic-offset . 2)
    (c-comment-only-line-offset . 0)
    (c-offsets-alist
     (statement-block-intro . +)
@@ -390,6 +408,11 @@ saving the buffer.")
 (use-package pickle :ensure t :pin melpa)
 (use-package cmake-mode :ensure t :pin melpa)
 (use-package cmake-font-lock :ensure t :pin melpa)
+
+(require 'el-get-bundle)
+(el-get-bundle cmake-cache-mode
+  :url "https://github.com/sabjohnso/cmake-cache-mode.git"
+  :features cmake-cache-mode)
 
 (defface compilation-pass
   '((t :inherit compilation-info))
@@ -419,6 +442,7 @@ saving the buffer.")
 ;; (use-package company-rtags :ensure t :pin melpa)
 (use-package clang-format :ensure t :pin melpa)
 (use-package clang-format+ :ensure t :pin melpa)
+(add-to-list 'auto-mode-alist '("\\.clang-format" . yaml-mode))
 
 (with-eval-after-load 'cmake-font-lock
   (add-to-list 'cmake-font-lock-function-keywords-alist
@@ -434,7 +458,13 @@ saving the buffer.")
 		 ("NAME" "SOURCE")))
   (add-to-list 'cmake-font-lock-function-keywords-alist
 	       '("raco_add_package" .
-		 ("PACKAGE_PATH" "DEPENDS"))))
+		 ("PACKAGE_PATH" "DEPENDS")))
+  (add-to-list 'cmake-font-lock-function-keywords-alist
+	       '("parameter"  .
+		 ("NAME" "DEFAULT" "TYPE" "DOC")))
+  (add-to-list 'cmake-font-lock-function-keywords-alist
+	       '("git_resolvable_dependency" .
+		 ("NAME" "GIT_REPOSITORY" "GIT_TAG"))))
 
 ;; (require 'rtags)
 ;; (cmake-ide-setup)
@@ -501,6 +531,7 @@ saving the buffer.")
     FAIL
     FAIL_CHECK
     CAPTURE
+    SKIP
     BENCHMARK
     BENCHMARK_ADVANCED))
 (use-package pcre2el :ensure t :pin melpa)
@@ -535,6 +566,13 @@ saving the buffer.")
 	    (local-set-key (kbd "<f12>") 'clang-format-buffer)
 	    ;; (my-add-c++-macro-highlights)
 	    ))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; ... Go
+;;
+(use-package go-mode :ensure t :pin melpa)
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Rust
@@ -546,6 +584,8 @@ saving the buffer.")
 ;;
 ;; ... Python
 ;;
+(add-to-list 'auto-mode-alist
+             '("poetry.lock" . toml-mode))
 
 (use-package pipenv :ensure t :pin melpa)
 (use-package pipenv
@@ -556,9 +596,21 @@ saving the buffer.")
 (use-package elpy :ensure t :pin melpa)
 (use-package python-black :ensure t :pin melpa
   :hook (python-mode . python-black-on-save-mode))
+(use-package flymake-python-pyflakes :ensure t :pin melpa)
 ;; (use-package jedi-direx :ensure t :pin melpa)
-(when (executable-find "ipython")
-  (setq python-shell-interpreter "ipython"))
+(add-hook 'python-mode-hook 'flycheck-mode)
+
+
+
+(defun ipython ()
+  "Start an ipython shell in a terminal-emulator in a new buffer
+The buffer is in Term mode; see `term-mode' for the
+commands to use in that buffer."
+  (interactive)
+  (let ((prog "ipython"))
+    (set-buffer (apply #'make-term prog prog nil nil))
+    (term-char-mode)
+    (pop-to-buffer-same-window (concat "*" prog "*"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -623,6 +675,7 @@ saving the buffer.")
 
 (use-package markdown-mode :ensure t :pin melpa)
 (use-package markdown-preview-eww :ensure t :pin melpa)
+(use-package markdown-preview-mode :ensure t :pin melpa)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

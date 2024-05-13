@@ -52,7 +52,17 @@
     define/transform
     define/subexpression-pos-prop
     define-for-syntax
-    define-struct))
+    define-struct
+    define-new-subtype
+    define-language
+    define-extended-language
+    define-judgment-form
+    define-metafunction
+    define-rule
+    define-interface
+    define-interface*
+    define-simple-macro
+    union))
 
 (defun my-racket-extras-module-introducers ()
   "Return a list of Racket keywords introducing modules"
@@ -61,7 +71,6 @@
     module*
     struct
     message
-    union
     enum
     data
     describe
@@ -84,6 +93,9 @@
     letrec-syntax
     let-syntaxes
     letrec-syntaxes+values
+    let/monad
+    let/applicative
+    let/functork
     let/m
     let/a
     let/f
@@ -91,7 +103,10 @@
     let/env
     let/list
     with-syntax
+    with-syntax*
     match-lambda**
+    lambda-curried
+    λ-curried
     match*
     process
     let/arrow
@@ -175,6 +190,8 @@
     place-channel-put/get))
 
 
+
+
 (defun my-racket-introducer-keyword-pattern ()
   "Return a pattern recognizing introducer keywords"
   (concat
@@ -188,6 +205,46 @@
 		    (my-racket-provide-spec-introducers)
 		    (my-racket-introducer-keywords))))
    "\\)[)[:space:]\n]"))
+
+(defun my-racket-syntax-parse-pattern-keywords ()
+  "Return a list of pattern introducers for syntax/parse"
+  '(~var
+    ~literal
+    ~dataum
+    ~and
+    ~or*
+    ~or
+    ~not
+    ~rest
+    ~describe
+    ~delimit-cut
+    ~post
+    ~rest
+    ~seq
+    ~optional
+    ~describe
+    ~commit
+    ~post
+    ~peek
+    ~peek-not
+    ~alt
+    ~once
+    ~between
+    ~bind
+    ~fail
+    ~parse
+    ~do
+    ~undo))
+
+(defun my-racket-syntax-parse-pattern-keywords-pattern ()
+  (concat
+   "(\\("
+   (regexp-opt
+    (mapcar #'symbol-name (my-racket-syntax-parse-pattern-keywords)))
+   "\\)[)[:space:]\n]"))
+
+(defun my-racket-syntax-parse-pattern-keywords-rule ()
+  (list (my-racket-syntax-parse-pattern-keywords-pattern) 1 'font-lock-type-face))
 
 (defun my-racket-infix-operators ()
   '(: <- -<))
@@ -250,13 +307,23 @@
    1
    font-lock-type-face))
 
-(defun my-racket-variable-name-rule ()
+(defun my-racket-function-name-rule ()
   (list
    (concat "([[:space:]\n]*"
 	   (regexp-opt (mapcar #'symbol-name (my-racket-extras-definition-keywords)))
 	   "[[:space:]\n]+(\\([^[:space:]\n()]+\\)")
    1
    font-lock-function-name-face))
+
+(defun my-racket-variable-name-rule ()
+  (list
+   (concat "([[:space:]\n]*"
+	   (regexp-opt (mapcar #'symbol-name (my-racket-extras-definition-keywords)))
+	   "[[:space:]\n]+\\([^[:space:]\n()]+\\)")
+   1
+   font-lock-variable-name-face))
+
+
 
 (defun my-racket-expanded-rule ()
   (list "[([:space:]\n]\\(#%[^[:space:]\n)]+\\)[[:space:]\n)]" 1
@@ -273,6 +340,7 @@
    (list
     (my-racket-lang-rule)    
     (my-racket-introducer-rule)
+    (my-racket-function-name-rule)
     (my-racket-variable-name-rule)
     (my-module-struct-name-rule)
     (my-racket-module-language-rule)
@@ -280,7 +348,8 @@
     (my-racket-infix-rule)
     (my-racket-expanded-rule)
     (my-racket-infix-notation-rule)
-    (my-racket-ctype-name-rule)))
+    (my-racket-ctype-name-rule)
+    (my-racket-syntax-parse-pattern-keywords-rule)))
   (font-lock-ensure))
 
 (defun my-add-racket-indentation ()
@@ -333,7 +402,8 @@
   (put 'in-query 'scheme-indent-function 1)
   (put 'stateful-run 'scheme-indent-function 1)
   (put 'stateful-exec 'scheme-indent-function 1)
-  (put 'stateful-eval 'scheme-indent-function 1))
+  (put 'stateful-eval 'scheme-indent-function 1)
+  (put 'with-syntax* 'scheme-indent-function 1))
 
 (add-hook 'scheme-mode-hook 'my-add-racket-highlights)
 (add-hook 'scheme-mode-hook 'my-add-racket-indentation)
