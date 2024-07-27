@@ -153,14 +153,20 @@ height of the font.")
     racket-mode
     dockerfile-mode
     scribble-mode
-    tuareg-mode)
+    tuareg-mode
+    json-mode
+    python-mode
+    fortran-mode
+    f90-mode
+    haskell-mode)
   "For modes in this list run `delete-trailing-whitespace` brefore
 saving the buffer.")
 
 (add-hook 'before-save-hook
    (lambda ()
      (when (member major-mode my-delete-trailing-whitespace-mode-list)
-       (delete-trailing-whitespace))))
+       (delete-trailing-whitespace)
+       (font-lock-ensure))))
 
 ;; prevent scaling with the mouse wheel and add
 ;; scaling with the up and down arrows
