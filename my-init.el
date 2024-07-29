@@ -126,6 +126,7 @@ height of the font.")
 (my-set-global-font-size-keys)
 
 
+
 ;;(add-function :after after-focus-change-function #'my-adapt-font-size)
 ;; (add-hook 'after-make-frame-functions #'my-adapt-font-size)
 
@@ -470,7 +471,13 @@ saving the buffer.")
 		 ("NAME" "DEFAULT" "TYPE" "DOC")))
   (add-to-list 'cmake-font-lock-function-keywords-alist
 	       '("git_resolvable_dependency" .
-		 ("NAME" "GIT_REPOSITORY" "GIT_TAG"))))
+		 ("NAME" "GIT_REPOSITORY" "GIT_TAG")))
+  (add-to-list 'cmake-font-lock-function-keywords-alist
+               '("FetchContent_Declare" .
+                 ("EXCLUDE_FROM_ALL"
+                  "SYSTEM"
+                  "GIT_REPOSITORY"
+                  "GIT_TAG"))))
 
 ;; (require 'rtags)
 ;; (cmake-ide-setup)
