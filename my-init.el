@@ -385,7 +385,7 @@ saving the buffer.")
 ;; (use-package company-c-headers :ensure t)
 ;; (use-package cpp-auto-include :ensure t)
 ;; (use-package cpputils-cmake :ensure t) ; this probably doesn't work
-;; (use-package demangle-mode :endsure t) ;
+;; (use-package demangle-mode :ensure t) ;
 ;; (use-package disaster :ensure t) ; this shoud dissasemble code at point
 ;; (use-package function-args :ensure t) ; C++ completion for GNU Emacs
 (use-package irony :ensure t) ; C/C++ minor mode powered by libclang
@@ -493,8 +493,14 @@ saving the buffer.")
   (interactive)
   (font-lock-add-keywords
    nil
-   '(("\\b\\([$]\\w+\\)" 1 font-lock-warning-face prepend)
-     ("\\b\\([A-Z_][A-Z_]+\\)\\b" 1 font-lock-warning-face))))
+   '(("\\b\\([0-9A-Z_]+\\)\\b" 1 font-lock-constant-face))))
+
+;; (defun my-add-c++-macro-highlights ()
+;;   (interactive)
+;;   (font-lock-add-keywords
+;;    nil
+;;    '(("\\b\\([$]\\w+\\)" 1 font-lock-warning-face prepend)
+;;      ("\\b\\([A-Z_][A-Z_]+\\)\\b" 1 font-lock-warning-face))))
 
 (defun my-c++-catch2-keywords ()
   "Return a list of keywords to add for Catch2 highlighting"
@@ -555,6 +561,7 @@ saving the buffer.")
   (concat "\\b\\("
 	  (regexp-opt (mapcar #'symbol-name (my-c++-catch2-keywords)))
 	  "\\)\\b"))
+
 (defun my-add-c++-catch2-keywords ()
   (interactive)
   (font-lock-add-keywords
@@ -564,7 +571,6 @@ saving the buffer.")
 
 (defvar my-clang-format-on-save-enabled t)
 (with-eval-after-load 'clang-format
-  
   (defun my-clang-format-on-save ()
     (when (and my-clang-format-on-save-enabled (eq major-mode 'c++-mode))
       (clang-format-buffer))))
@@ -575,9 +581,10 @@ saving the buffer.")
 	  (lambda ()
 	    (c-set-style "my")
 	    (my-add-c++-fixme-highlights)
+            (my-add-c++-macro-highlights)
 	    (my-add-c++-catch2-keywords)
 	    (local-set-key (kbd "<f12>") 'clang-format-buffer)
-	    ;; (my-add-c++-macro-highlights)
+
 	    ))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
