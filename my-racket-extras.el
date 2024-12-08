@@ -6,7 +6,7 @@
 (defun my-regex-opt-symbols (symbols)
   (regexp-opt (mapcar #'symbol-name symbols)))
 
-(defun my-racket-extras-definition-keywords ()  
+(defun my-racket-extras-definition-keywords ()
   "Return a list of Racket keywords introducing definitions in Racket"
   '(define/contract
     define-tag
@@ -62,7 +62,14 @@
     define-interface
     define-interface*
     define-simple-macro
-    union))
+    union
+    protocol
+    def
+    instance
+    declare
+    type
+    signature
+    record))
 
 (defun my-racket-extras-module-introducers ()
   "Return a list of Racket keywords introducing modules"
@@ -329,7 +336,7 @@
   (list "[([:space:]\n]\\(#%[^[:space:]\n)]+\\)[[:space:]\n)]" 1
 	font-lock-warning-face))
 
-(defun my-racket-infix-notation-rule ()  
+(defun my-racket-infix-notation-rule ()
   (list "[[:space:]\n]\\(\`[^[:space:]\n(]+\\)[[:space:]\n]" 1
 	font-lock-builtin-face))
 
@@ -338,7 +345,7 @@
   (font-lock-add-keywords
    nil
    (list
-    (my-racket-lang-rule)    
+    (my-racket-lang-rule)
     (my-racket-introducer-rule)
     (my-racket-function-name-rule)
     (my-racket-variable-name-rule)
@@ -363,7 +370,7 @@
   (put 'let/a 'scheme-indent-function 1)
   (put 'let/f 'scheme-indent-function 1)
   (put 'lambda/arrow 'scheme-indent-function 1)
-  (put 'λ/arrow 'scheme-indent-function 1)  
+  (put 'λ/arrow 'scheme-indent-function 1)
   (put 'let/arrow 'scheme-indent-function 1)
   (put 'match* 'scheme-indent-function 1)
   (put 'process 'scheme-indent-function 1)
@@ -374,7 +381,7 @@
   (put 'context 'scheme-indent-function 1)
   (put 'it 'scheme-indent-function 1)
   (put 'format 'scheme-indent-function 1)
-  (put 'struct-copy 'schme-indent-function 2)
+  (put 'struct-copy 'scheme-indent-function 2)
   (put 'if 'scheme-indent-function 2)
   (put 'stream-iterate 'scheme-indent-function 1)
   (put 'pipe 'scheme-indent-function 1)
@@ -403,7 +410,10 @@
   (put 'stateful-run 'scheme-indent-function 1)
   (put 'stateful-exec 'scheme-indent-function 1)
   (put 'stateful-eval 'scheme-indent-function 1)
-  (put 'with-syntax* 'scheme-indent-function 1))
+  (put 'with-syntax* 'scheme-indent-function 1)
+  (put 'type 'scheme-indent-function 1)
+  (put 'signature 'scheme-indent-function 1)
+  (put 'record 'scheme-indent-function 1))
 
 (add-hook 'scheme-mode-hook 'my-add-racket-highlights)
 (add-hook 'scheme-mode-hook 'my-add-racket-indentation)

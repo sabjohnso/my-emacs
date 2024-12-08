@@ -159,7 +159,8 @@ height of the font.")
     python-mode
     fortran-mode
     f90-mode
-    haskell-mode)
+    haskell-mode
+    yaml-mode)
   "For modes in this list run `delete-trailing-whitespace` brefore
 saving the buffer.")
 
@@ -167,7 +168,8 @@ saving the buffer.")
    (lambda ()
      (when (member major-mode my-delete-trailing-whitespace-mode-list)
        (delete-trailing-whitespace)
-       (font-lock-ensure))))
+       (font-lock-fontify-buffer))))
+
 
 ;; prevent scaling with the mouse wheel and add
 ;; scaling with the up and down arrows
@@ -201,6 +203,12 @@ saving the buffer.")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
+;;; ... Graphviz
+;;;
+(use-package graphviz-dot-mode :ensure t :pin melpa)
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
 ;;; ... General Development
 ;;;
 (use-package dockerfile-mode :ensure t :pin melpa)
@@ -209,6 +217,7 @@ saving the buffer.")
 (use-package company-rtags :ensure t)
 (use-package highlight-thing :ensure t)
 ;; (use-package highlight-unique-symbol :ensure t)
+
 (use-package paredit-everywhere :ensure t :pin melpa)
 (use-package paredit-menu :ensure t :pin melpa)
 (use-package flycheck-projectile :ensure t :pin melpa)
@@ -285,20 +294,34 @@ saving the buffer.")
 ;; 	      (read-kbd-macro paredit-backward-delete-key)))
 
 ;; (add-hook 'slime-repl-mode-hook (lambda () (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
+(add-hook 'slime-repl-mode
+          (lambda ()
+            (paredit-mode)
+            (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
+
 (use-package slime-company :ensure t :pin melpa)
 (use-package company :ensure t :pin melpa)
 (use-package racket-mode :ensure t :pin melpa)
 (use-package scribble-mode :ensure t :pin melpa)
 (use-package hy-mode :ensure t :pin melpa)
 
+(add-to-list 'auto-mode-alist '("\\.sbclrc\\'" . lisp-mode))
+(add-to-list 'auto-mode-alist '("\\.eclrc\\'" . lisp-mode))
+(add-to-list 'auto-mode-alist '("\\.ecl\\'" . lisp-mode))
 
 (use-package clojure-mode :ensure t :pin melpa)
 (use-package cider :ensure t :pin melpa)
 
 (with-eval-after-load
- 'slime
- (setq slime-lisp-implementations
-       '((sbcl ("/usr/bin/sbcl") :coding-system utf-8-unix))))
+    'slime
+  (setq slime-lisp-implementations
+        '((ros ("ros" "run") )
+          (sbcl ("sbcl") :coding-system utf-8-unix)
+          (clisp ("clisp"))
+          (abcl ("/home/sbj/.roswell/impls/x86-64/linux/abcl-bin/1.9.3/abcl"))
+          (ccl ("/home/sbj/.roswell/impls/x86-64/linux/ccl-bin/1.13/scripts/ccl"))
+          (cmu ("/home/sbj/.roswell/impls/x86-64/linux/cmu-bin/21e/bin/lisp"))
+          (ecl ("/home/sbj/.roswell/impls/x86-64/linux/ecl/24.5.10/bin/ecl")))))
 
 ;; scheme
 (use-package geiser-racket :ensure t :pin melpa)
@@ -322,9 +345,15 @@ saving the buffer.")
 ;; paredit
 (use-package paredit :ensure t :pin melpa)
 (require 'paredit)
+
+;; Stop SLIME's REPL from grabbing DEL,
+;; which is annoying when backspacing over a '('
 (defun my-override-slime-repl-bindings-with-paredit ()
-  (define-key 'slime-repl-mode-map
-	      (read-kbd-macro paredit-backward-delete-key) nil))
+  (interactive)
+  (define-key slime-repl-mode-map
+              (read-kbd-macro paredit-backward-delete-key) nil))
+(add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
+
 
 (define-key paredit-mode-map (kbd "RET") nil)
 (define-key paredit-mode-map (kbd "C-j") 'paredit-newline)
@@ -346,21 +375,10 @@ saving the buffer.")
   (define-key paredit-mode-map (kbd "RET") nil)
   (define-key paredit-mode-map (kbd "C-j") 'paredit-newline))
 
-(defun my-add-lisp-keywords ()
-  (interactive)
-  (font-lock-add-keywords
-   nil
-   '(("(\\(\\(?:defenum\\|deflist\\|defsystem\\|def-suite[*]?\\|in-suite\\|def-fixture\\|test\\|is\\)\\)[ \t\n]"
-      1 font-lock-keyword-face)
-     ("(\\(?:defenum\\|deflist\\|defsystem\\|def-suite[*]\\|in-suite\\|def-fixture\\|test\\)\\s-+\\([^[:space:])\n]+\\)"
-      1 font-lock-type-face)
-     ("(the\\s-+\\([^[:space:]\n)]+\\)" 1 font-lock-type-face))))
-
 (add-hook 'lisp-mode-hook 'my-add-lisp-keywords)
+(add-hook 'lisp-mode-hook 'company-mode)
 (add-hook 'lisp-mode-hook (lambda () (local-set-key (kbd "C-c I") 'slime-inspect)))
 
-;; emacs-lisp
-(add-hook 'emacs-lisp-mode-hook (lambda () (local-set-key (kbd "<f5>") 'emacs-lisp-byte-compile-and-load)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -569,11 +587,12 @@ saving the buffer.")
    `((,(my-c++-catch2-keywords-pattern) 1 font-lock-warning-face))))
 
 
+
 (defvar my-clang-format-on-save-enabled t)
-(with-eval-after-load 'clang-format
-  (defun my-clang-format-on-save ()
-    (when (and my-clang-format-on-save-enabled (eq major-mode 'c++-mode))
-      (clang-format-buffer))))
+(require 'clang-format)
+(defun my-clang-format-on-save ()
+  (when (and my-clang-format-on-save-enabled (eq major-mode 'c++-mode))
+    (clang-format-buffer)))
 
 (add-hook 'before-save-hook 'my-clang-format-on-save)
 (add-hook 'c++-mode-hook 'clang-format+-mode)
@@ -583,9 +602,7 @@ saving the buffer.")
 	    (my-add-c++-fixme-highlights)
             (my-add-c++-macro-highlights)
 	    (my-add-c++-catch2-keywords)
-	    (local-set-key (kbd "<f12>") 'clang-format-buffer)
-
-	    ))
+	    (local-set-key (kbd "<f12>") 'clang-format-buffer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -629,7 +646,6 @@ commands to use in that buffer."
   (interactive)
   (let ((prog "ipython"))
     (set-buffer (apply #'make-term prog prog nil nil))
-    (term-char-mode)
     (pop-to-buffer-same-window (concat "*" prog "*"))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -648,10 +664,12 @@ commands to use in that buffer."
 (use-package opam-switch-mode :ensure t :pin melpa)
 (use-package tuareg :ensure t :pin melpa)
 
-(add-hook 'tuareg-mode-hook #'merlin-mode)
-(add-hook 'caml-mode-hook #'merlin-mode)
-(add-hook 'tuareg-mode-hook #'paredit-mode)
-(add-hook 'dune-mode-hook #'paredit-mode)
+(require 'merlin)
+
+(add-hook 'tuareg-mode-hook (lambda () (merlin-mode)))
+(add-hook 'caml-mode-hook (lambda () (merlin-mode)))
+(add-hook 'tuareg-mode-hook (lambda () (paredit-mode)))
+(add-hook 'dune-mode-hook (lambda () (paredit-mode)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -722,7 +740,7 @@ commands to use in that buffer."
 
 (use-package chatgpt-shell :ensure t :pin melpa)
 (with-eval-after-load 'chatgpt-shell
- (setq chatgpt-shell-openai-key "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"))
+  (setq chatgpt-shell-openai-key "xxxx"))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -731,6 +749,7 @@ commands to use in that buffer."
 
 (require 'my-closet)
 (require 'my-racket-extras)
+(require 'my-common-lisp-extras)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'my-init)
