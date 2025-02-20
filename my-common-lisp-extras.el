@@ -1,4 +1,4 @@
-;;; my-common-lisp-extras.el --- Extra Support for Common Lisp -*- lexical-binding: t -*-e
+;;; my-common-lisp-extras.el --- Extra Support for Common Lisp -*- lexical-binding: t -*-
 
 (use-package pcre2el :ensure t :pin melpa)
 (require 'pcre2el)
@@ -100,3 +100,5 @@
 
 ;;      ("(the\\s-+\\([^[:space:]\n)]+\\)" 1 font-lock-type-face)
 ;;      ("\\b\\([^[:space:]\n:]+\\):" 1 font-lock-constant-face))))
+
+(provide 'my-common-lisp-extras)

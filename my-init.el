@@ -33,13 +33,22 @@
 ;; down with tabs
 (setq-default indent-tabs-mode nil)
 
-(set-frame-font
- '(:family "DejaVu Sans Mono"
-	   :foundry "PfEd"
-	   :slant normal
-	   :weight normal
-	   :height 85
-	   :width normal))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(default ((t (:family "DejaVu Sans Mono" :foundry "PfEd" :slant normal :weight regular :height 81 :width normal))))
+ '(dir-treeview-directory-face ((t (:inherit dir-treeview-default-filename-face :foreground "cyan"))))
+ '(tuareg-font-lock-governing-face ((t (:weight bold :foreground "dark cyan" :inherit bold)))))
+
+;; (set-frame-font
+;;  '(:family "DejaVu Sans Mono"
+;; 	   :foundry "PfEd"
+;; 	   :slant normal
+;; 	   :weight normal
+;; 	   :height 85
+;; 	   :width normal))
 
 (tool-bar-mode 0)
 (scroll-bar-mode 0)
@@ -47,8 +56,6 @@
 (global-set-key (kbd "<f5>") #'compile)
 
 (setq save-abbrevs 'silently)
-
-
 
 (defun my-get-monitor-pixels (&optional frame)
   "Return a two element list containing the number of
@@ -286,20 +293,20 @@ saving the buffer.")
             (local-set-key (kbd "C-c C-c") 'comment-region)))
 
 ;; slime/lisp
-(use-package slime :ensure t :pin melpa)
-(require 'slime)
+;; (use-package slime :ensure t :pin melpa)
+;; (require 'slime)
 ;; (defun my-override-slime-repl-bindings-with-paredit ()
 ;;   (interactive)
 ;;   (keymap-unset slime-repl-mode-map
 ;; 	      (read-kbd-macro paredit-backward-delete-key)))
 
 ;; (add-hook 'slime-repl-mode-hook (lambda () (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
-(add-hook 'slime-repl-mode
-          (lambda ()
-            (paredit-mode)
-            (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
+;; (add-hook 'slime-repl-mode
+;;           (lambda ()
+;;             (paredit-mode)
+;;             (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
 
-(use-package slime-company :ensure t :pin melpa)
+;; (use-package slime-company :ensure t :pin melpa)
 (use-package company :ensure t :pin melpa)
 (use-package racket-mode :ensure t :pin melpa)
 (use-package scribble-mode :ensure t :pin melpa)
@@ -348,11 +355,11 @@ saving the buffer.")
 
 ;; Stop SLIME's REPL from grabbing DEL,
 ;; which is annoying when backspacing over a '('
-(defun my-override-slime-repl-bindings-with-paredit ()
-  (interactive)
-  (define-key slime-repl-mode-map
-              (read-kbd-macro paredit-backward-delete-key) nil))
-(add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
+;; (defun my-override-slime-repl-bindings-with-paredit ()
+;;   (interactive)
+;;   (define-key slime-repl-mode-map
+;;               (read-kbd-macro paredit-backward-delete-key) nil))
+;; (add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
 
 
 (define-key paredit-mode-map (kbd "RET") nil)
@@ -513,6 +520,38 @@ saving the buffer.")
    nil
    '(("\\b\\([0-9A-Z_]+\\)\\b" 1 font-lock-constant-face))))
 
+;; Add Highlights and Links in `compilation-mode'
+;; ==============================================
+;;
+;; `compilation-mode' has a somewhat two allists that are used to control highlighting and linking
+;; to errors in compilation mode (`compilation-error-regexp-alist' and `compilation-error-regexp-alist-alist').
+;; `compilation-error-regexp-alist' is primarily a list of symbols (not an alist).  Those symbols
+;; are keys for `compilation-error-regexp-alist-alist', which is actually an alist.
+;;
+;; Presumably the intent is to allow one to store patterns in `compilation-error-regexp-alist-alist' and
+;; select them easily in `compilation-error-regexp-alist', where and initial implementation probably
+;; had them in `compilation-error-regexp-alist'.  Note that the patterns can still be put in
+;; `compilation-error-regexp-alist'.
+;;
+;; Each element in `compilation-error-regexp-alist-alist' has the form
+;; (NAME REGEXP FILE [LINE COLUMN TYPE HYPERLINK] [HIGHLIGHTS ...]) see the documentation for
+;; an explanation, but `FILE', `LINE' and `COLUMN' are the indices of the match of the regular expression.
+;; Remember that 0 is for the whole pattern and the first group starts at 1.
+;;
+;; Add a pattern for assertion failures that matches for g++ and clang++
+(add-to-list 'compilation-error-regexp-alist-alist
+ '(gnu-assertion
+   "^\\b[^:]+:\\s +\\([^:]*\\):\\([0-9]+\\):\\s +\\(.*+?\\):\\([0-9]*\\) Assertion `\\(.*?\\)' failed." 
+   1 2 3 2 1))
+
+(add-to-list 'compilation-error-regexp-alist-alist
+             '(path-and-line-number
+               "[\n][\t ]+\\([^: ]+\\):\\([0-9]+\\):"
+   1 2 nil 0 1))
+
+(add-to-list 'compilation-error-regexp-alist 'gnu-assertion )
+(add-to-list 'compilation-error-regexp-alist 'path-and-line-number)
+
 ;; (defun my-add-c++-macro-highlights ()
 ;;   (interactive)
 ;;   (font-lock-add-keywords
@@ -657,7 +696,7 @@ commands to use in that buffer."
 (use-package dune :ensure t :pin melpa)
 (use-package dune-format :ensure t :pin melpa)
 (use-package merlin :ensure t :pin melpa)
-(use-package merlin-company :ensure t :pin melpa                )
+(use-package merlin-company :ensure t :pin melpa)
 (use-package merlin-eldoc :ensure t :pin melpa)
 (use-package merlin-iedit :ensure t :pin melpa)
 ;; (use-package ocaml-format :ensure t :pin melpa)

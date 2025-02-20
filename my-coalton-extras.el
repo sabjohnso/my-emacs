@@ -13,7 +13,7 @@
     define-class
     define-instance))
 
-(defun my-coalton-let-keywords
+(defun my-coalton-let-keywords ()
     "Return a list of keywords introducing `LET' style bindings."
   '(let))
 

@@ -47,6 +47,7 @@
     define-optional-predicate
     define-either-predicate
     define-jsonschema-predicate
+    define/phase-invariant
     define/lexeme
     define/pattern
     define/transform
@@ -62,6 +63,7 @@
     define-interface
     define-interface*
     define-simple-macro
+    define-syntax-parameter
     union
     protocol
     def
@@ -70,6 +72,7 @@
     type
     signature
     record))
+
 
 (defun my-racket-extras-module-introducers ()
   "Return a list of Racket keywords introducing modules"
@@ -413,7 +416,8 @@
   (put 'with-syntax* 'scheme-indent-function 1)
   (put 'type 'scheme-indent-function 1)
   (put 'signature 'scheme-indent-function 1)
-  (put 'record 'scheme-indent-function 1))
+  (put 'record 'scheme-indent-function 1)
+  (put 'define-syntax-parameter 'scheme-indent-function 1))
 
 (add-hook 'scheme-mode-hook 'my-add-racket-highlights)
 (add-hook 'scheme-mode-hook 'my-add-racket-indentation)

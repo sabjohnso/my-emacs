@@ -1,4 +1,4 @@
-;;; my-closet.el --- Where I keep my skeletons
+;;; my-closet.el --- Where I keep my skeletons -*- lexical-binding: t -*-
 
 (require 'cc-mode)
 (require 'json-mode)
