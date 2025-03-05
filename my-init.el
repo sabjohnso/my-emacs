@@ -167,7 +167,9 @@ height of the font.")
     fortran-mode
     f90-mode
     haskell-mode
-    yaml-mode)
+    yaml-mode
+    markdown-mode
+    emacs-lisp-mode)
   "For modes in this list run `delete-trailing-whitespace` brefore
 saving the buffer.")
 
@@ -473,7 +475,6 @@ saving the buffer.")
 ;; (use-package flycheck-rtags :ensure t :pin melpa)
 ;; (use-package company-rtags :ensure t :pin melpa)
 (use-package clang-format :ensure t :pin melpa)
-(use-package clang-format+ :ensure t :pin melpa)
 (add-to-list 'auto-mode-alist '("\\.clang-format" . yaml-mode))
 
 (with-eval-after-load 'cmake-font-lock
@@ -541,7 +542,7 @@ saving the buffer.")
 ;; Add a pattern for assertion failures that matches for g++ and clang++
 (add-to-list 'compilation-error-regexp-alist-alist
  '(gnu-assertion
-   "^\\b[^:]+:\\s +\\([^:]*\\):\\([0-9]+\\):\\s +\\(.*+?\\):\\([0-9]*\\) Assertion `\\(.*?\\)' failed." 
+   "^\\b[^:]+:\\s +\\([^:]*\\):\\([0-9]+\\):\\s +\\(.*+?\\):\\([0-9]*\\) Assertion `\\(.*?\\)' failed."
    1 2 3 2 1))
 
 (add-to-list 'compilation-error-regexp-alist-alist
@@ -562,6 +563,7 @@ saving the buffer.")
 (defun my-c++-catch2-keywords ()
   "Return a list of keywords to add for Catch2 highlighting"
   '(TEST_CASE
+    SCENARIO
     SECTION
     GIVEN
     THEN
@@ -634,7 +636,8 @@ saving the buffer.")
     (clang-format-buffer)))
 
 (add-hook 'before-save-hook 'my-clang-format-on-save)
-(add-hook 'c++-mode-hook 'clang-format+-mode)
+;; (add-hook 'c++-mode-hook 'clang-format+-mode)
+(add-hook 'c++-mode-hook 'auto-complete-mode)
 (add-hook 'c++-mode-hook
 	  (lambda ()
 	    (c-set-style "my")
