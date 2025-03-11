@@ -545,6 +545,12 @@ saving the buffer.")
    "^\\b[^:]+:\\s +\\([^:]*\\):\\([0-9]+\\):\\s +\\(.*+?\\):\\([0-9]*\\) Assertion `\\(.*?\\)' failed."
    1 2 3 2 1))
 
+(add-to-list
+ 'compilation-error-regexp-alist-alist
+ '(rackunit
+   "location:\s +\\([^:]+\\):\\([0-9]+\\):\\([0-9]+\\)"
+   1 2 3 2 1))
+
 (add-to-list 'compilation-error-regexp-alist-alist
              '(path-and-line-number
                "[\n][\t ]+\\([^: ]+\\):\\([0-9]+\\):"
@@ -552,6 +558,7 @@ saving the buffer.")
 
 (add-to-list 'compilation-error-regexp-alist 'gnu-assertion )
 (add-to-list 'compilation-error-regexp-alist 'path-and-line-number)
+(add-to-list 'compilation-error-regexp-alist 'rackunit)
 
 ;; (defun my-add-c++-macro-highlights ()
 ;;   (interactive)
