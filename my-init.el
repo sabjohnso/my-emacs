@@ -38,17 +38,10 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(default ((t (:family "DejaVu Sans Mono" :foundry "PfEd" :slant normal :weight regular :height 81 :width normal))))
+ '(default ((t (:family "DejaVu Sans Mono" :foundry "PfEd" :slant normal :weight regular :height 110 :width normal))))
  '(dir-treeview-directory-face ((t (:inherit dir-treeview-default-filename-face :foreground "cyan"))))
  '(tuareg-font-lock-governing-face ((t (:weight bold :foreground "dark cyan" :inherit bold)))))
 
-;; (set-frame-font
-;;  '(:family "DejaVu Sans Mono"
-;; 	   :foundry "PfEd"
-;; 	   :slant normal
-;; 	   :weight normal
-;; 	   :height 85
-;; 	   :width normal))
 
 (tool-bar-mode 0)
 (scroll-bar-mode 0)
@@ -169,7 +162,8 @@ height of the font.")
     haskell-mode
     yaml-mode
     markdown-mode
-    emacs-lisp-mode)
+    emacs-lisp-mode
+    nxml-mode)
   "For modes in this list run `delete-trailing-whitespace` brefore
 saving the buffer.")
 
@@ -354,6 +348,8 @@ saving the buffer.")
 ;; paredit
 (use-package paredit :ensure t :pin melpa)
 (require 'paredit)
+(define-key paredit-mode-map (kbd "RET") nil)
+
 
 ;; Stop SLIME's REPL from grabbing DEL,
 ;; which is annoying when backspacing over a '('
@@ -540,6 +536,12 @@ saving the buffer.")
 ;; Remember that 0 is for the whole pattern and the first group starts at 1.
 ;;
 ;; Add a pattern for assertion failures that matches for g++ and clang++
+(add-to-list
+ 'compilation-error-regexp-alist-alist
+ '(clang-address-sanitizer
+   "#[0-9]+ 0x\\(?:[0-9a-f]+\\) in .*? \\(/.*?\\):\\([0-9]+\\):\\([0-9]+\\)$"
+   1 2 3 1))
+
 (add-to-list 'compilation-error-regexp-alist-alist
  '(gnu-assertion
    "^\\b[^:]+:\\s +\\([^:]*\\):\\([0-9]+\\):\\s +\\(.*+?\\):\\([0-9]*\\) Assertion `\\(.*?\\)' failed."
@@ -559,6 +561,7 @@ saving the buffer.")
 (add-to-list 'compilation-error-regexp-alist 'gnu-assertion )
 (add-to-list 'compilation-error-regexp-alist 'path-and-line-number)
 (add-to-list 'compilation-error-regexp-alist 'rackunit)
+(add-to-list 'compilation-error-regexp-alist 'clang-address-sanitizer)
 
 ;; (defun my-add-c++-macro-highlights ()
 ;;   (interactive)
@@ -645,13 +648,26 @@ saving the buffer.")
 (add-hook 'before-save-hook 'my-clang-format-on-save)
 ;; (add-hook 'c++-mode-hook 'clang-format+-mode)
 (add-hook 'c++-mode-hook 'auto-complete-mode)
+
+
+
+(defun my-c++-mode-hooks ()
+  "Hook the following functions when c++-mode is started"
+  (c-set-style "my")
+  (display-line-numbers-mode)
+  (my-add-c++-fixme-highlights)
+  (my-add-c++-macro-highlights)
+  (my-add-c++-catch2-keywords)
+  (local-set-key (kbd "<f12>") 'clang-format-buffer))
+
 (add-hook 'c++-mode-hook
-	  (lambda ()
-	    (c-set-style "my")
-	    (my-add-c++-fixme-highlights)
+          (lambda ()
+            (c-set-style "my")
+            (display-line-numbers-mode)
+            (my-add-c++-fixme-highlights)
             (my-add-c++-macro-highlights)
-	    (my-add-c++-catch2-keywords)
-	    (local-set-key (kbd "<f12>") 'clang-format-buffer)))
+            (my-add-c++-catch2-keywords)
+            (local-set-key (kbd "<f12>") 'clang-format-buffer)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;

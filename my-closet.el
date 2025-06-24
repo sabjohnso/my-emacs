@@ -7,7 +7,6 @@
 (require 'skeleton)
 
 
-
 ;;
 ;; ... C++
 ;;
@@ -19,6 +18,92 @@
   "return 0;" \n
   "}" \n)
 (define-abbrev c++-mode-abbrev-table "skmain" "" 'my-c++-main-skeleton)
+
+(define-skeleton my-c++-niebloid-skeleton
+  "Skeleton for neibloids"
+  "Name: "
+  "#pragma once
+
+#include <nstd/details/utils.hpp>
+
+namespace nstd {
+
+  namespace concepts {
+    /**
+     * @brief A concept for types that implement a nullary member function
+     * named `" str "`.
+     */
+    template<typename T>
+    concept Has_" (capitalize str) "_Member = requires(T &x) {
+      x." str "();
+    };
+  } // end of namespace concepts
+
+  namespace niebloid {
+
+    template<concepts::Unsatisfiable T>
+    void
+    " str "_impl(Type<T>) {
+    }
+
+    /**
+     * @brief A type implementing a method for types that
+     * satisfy the `Has_" (capitalize str) "_Member` concept.
+     */
+    struct " (capitalize str) "_Member {
+      template<concepts::Has_" (capitalize str) "_Member T>
+      constexpr auto
+      operator()(T &&stack) const {
+        return std::forward<T>(stack)." str "();
+      }
+    };
+
+    constexpr " (capitalize str) "_Member " str "_member{};
+
+    template<concepts::Has_" (capitalize str) "_Member T>
+    constexpr auto
+    " str "_impl(Type<T>) {
+      return "str"_member;
+    }
+
+
+    struct Get_" (capitalize str) " {
+      template<typename T>
+      requires requires {
+        " str "_impl(type<T>);
+      }
+      constexpr auto
+      operator()(Type<T>) const {
+        return " str "_impl(type<T>);
+      }
+    };
+
+  } // end of namespace niebloid
+
+  constexpr auto &get_" str " = details::static_const<details::Get_" (capitalize str) ">;
+
+  namespace concepts {
+    template<typename T>
+    concept Has_" (capitalize str) " = requires {
+      get_" str "(type<T>);
+    };
+
+  } // end of namespace concepts
+
+  struct " (capitalize str) " {
+    template<typename T>
+    constexpr auto
+    operator()(T &&stack) const {
+      constexpr auto  " str " = get_" str "(type<T>);
+      return  " str "(std::forward<T>(stack));
+    }
+  };
+
+  constexpr " (capitalize str) " " str "{};
+
+} // end of namespace nstd")
+(define-abbrev c++-mode-abbrev-table "skniebloid" "" 'my-c++-niebloid-skeleton)
+
 
 (define-skeleton my-c++-include-section-skeleton
   "Skeleton for a group of C++ include statements"
@@ -50,12 +135,21 @@
   "Name: "
   > "/** " \n
   > "* @brief " _ \n
-  > " */" \n  
+  > " */" \n
   > "class " str "{" \n
   > "public:" \n
   > "private:" \n
   > "} // end of class " str \n)
 (define-abbrev c++-mode-abbrev-table "skcls" "" 'my-c++-namespace-skeleton)
+
+(define-skeleton my-c++-section-skeleton
+  "Skeleton of a C++ Catch2 section"
+  "Section Name: "
+  > "
+  SECTION(\"" str "\"){
+  }
+  ")
+(define-abbrev c++-mode-abbrev-table "sksec" "" 'my-c++-section-skeleton)
 
 
 (define-skeleton my-c++-template-parameter-list-skeleton
@@ -175,4 +269,3 @@
 ;;
 
 (provide 'my-closet)
-
