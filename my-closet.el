@@ -34,7 +34,7 @@ namespace nstd {
      * named `" str "`.
      */
     template<typename T>
-    concept Has_" (capitalize str) "_Member = requires(T &x) {
+    concept Has_" (capitalize str) "_Memfn = requires(T &x) {
       x." str "();
     };
   } // end of namespace concepts
@@ -48,22 +48,20 @@ namespace nstd {
 
     /**
      * @brief A type implementing a method for types that
-     * satisfy the `Has_" (capitalize str) "_Member` concept.
+     * satisfy the `Has_" (capitalize str) "_Memfn` concept.
      */
-    struct " (capitalize str) "_Member {
-      template<concepts::Has_" (capitalize str) "_Member T>
-      constexpr auto
+    struct Execute_" (capitalize str) "_Memfn {
+      template<concepts::Has_" (capitalize str) "_Memfn T>
+      constexpr decltype(auto)
       operator()(T &&stack) const {
         return std::forward<T>(stack)." str "();
       }
     };
 
-    constexpr " (capitalize str) "_Member " str "_member{};
-
-    template<concepts::Has_" (capitalize str) "_Member T>
-    constexpr auto
+    template<concepts::Has_" (capitalize str) "_Memfn T>
+    constexpr Execute_" (capitalize str) "_Memfn
     " str "_impl(Type<T>) {
-      return "str"_member;
+      return {};
     }
 
 
@@ -94,7 +92,7 @@ namespace nstd {
     template<typename T>
     constexpr auto
     operator()(T &&stack) const {
-      constexpr auto  " str " = get_" str "(type<T>);
+      constexpr decltype(auto)  " str " = get_" str "(type<T>);
       return  " str "(std::forward<T>(stack));
     }
   };
@@ -103,6 +101,92 @@ namespace nstd {
 
 } // end of namespace nstd")
 (define-abbrev c++-mode-abbrev-table "skniebloid" "" 'my-c++-niebloid-skeleton)
+
+(define-skeleton my-c++-binary-niebloid-skeleton
+  "A skeleton for binary niebloids"
+  "Name: "
+  "#pragma once
+
+#include <nstd/details/utils.hpp>
+
+namespace nstd {
+
+  namespace concepts {
+    /**
+     * @brief A concept for types that implement a nullary member function
+     * named `" str "`.
+     */
+    template<typename T, typename Tape>
+    concept Has_" (capitalize str) "_Memfn_With = requires(const T &value, Tape &tape) {
+      tape." str "(value);
+    };
+  } // end of namespace concepts
+
+  namespace niebloid {
+
+    template<concepts::Unsatisfiable T>
+    void
+    " str "_impl(Type<T>) {
+    }
+
+    /**
+     * @brief A type implementing a method for types that
+     * satisfy the `Has_" (capitalize str) "_Memfn` concept.
+     */
+    struct Execute_" (capitalize str) "_Memfn {
+      template<typename T, typename Tape>
+      requires concepts::Has_" (capitalize str) "_Memfn_With<T, Tape>
+      constexpr decltype(auto)
+      operator()(T &&value, Tape &&tape) const {
+        return std::forward<Tape>(tape)." str "(std::forward<T>(value));
+      }
+    };
+
+    template<typename T, typename Tape>
+    requires concepts::Has_" (capitalize str) "_Memfn_With<T, Tape>
+    constexpr Execute_" (capitalize str) "_Memfn
+    " str "_impl(Type<T>, Type<Tape>) {
+      return {};
+    }
+
+    struct Get_" (capitalize str) " {
+      template<typename T, typename Tape>
+      requires requires {
+        " str "_impl(type<T>, type<Tape>);
+      }
+      constexpr auto
+      operator()(Type<T>, Type<Tape>) const {
+        return " str "_impl(type<T>, type<Tape>);
+      }
+    };
+
+  } // end of namespace niebloid
+
+  constexpr auto &get_" str " = details::static_const<details::Get_" (capitalize str) ">;
+
+  namespace concepts {
+    template<typename T, typename Tape>
+    concept Has_" (capitalize str) "_With = requires {
+      get_" str "(type<T>, type<Tape>);
+    };
+
+  } // end of namespace concepts
+
+  struct " (capitalize str) " {
+    template<typename T, typename Tape>
+    requires concepts::Has_" (capitalize str) "_With<T, Tape>
+    constexpr decltype(auto)
+    operator()(T &&value, Tape &&tape) const {
+      constexpr auto " str " = get_" str "(type<T>, type<Tape>);
+      return " str "(std::forward<T>(value), std::forward<Tape>(tape));
+    }
+  };
+
+  constexpr auto " str " = curry(nat<2>, " (capitalize str) "{});
+
+} // end of namespace nstd
+")
+(define-abbrev c++-mode-abbrev-table "skniebloid2" "" 'my-c++-binary-niebloid-skeleton)
 
 
 (define-skeleton my-c++-include-section-skeleton

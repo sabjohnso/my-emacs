@@ -690,8 +690,7 @@ saving the buffer.")
              '("poetry.lock" . toml-mode))
 
 (use-package pipenv :ensure t :pin melpa)
-(use-package pipenv
-  :hook (python-mode . pipenv-mode))
+(use-package pipenv :hook (python-mode . pipenv-mode))
 
 (use-package jedi :ensure t :pin melpa)
 (use-package company-jedi :ensure t :pin melpa)
@@ -701,7 +700,14 @@ saving the buffer.")
 (use-package flymake-python-pyflakes :ensure t :pin melpa)
 ;; (use-package jedi-direx :ensure t :pin melpa)
 (add-hook 'python-mode-hook 'flycheck-mode)
+(use-package flymake-ruff
+  :ensure t
+  :hook (python-mode . flymake-ruff-load))
 
+(use-package lazy-ruff
+  :ensure t
+  :bind (("<f12>" . lazy-ruff-lint-format-dwim)) ;; keybinding
+  :config (lazy-ruff-global-mode t))
 
 
 (defun ipython ()
@@ -807,6 +813,29 @@ commands to use in that buffer."
 (with-eval-after-load 'chatgpt-shell
   (setq chatgpt-shell-openai-key "xxxx"))
 
+
+(setq my-using-elpa-gptel nil)
+
+(add-to-list 'load-path (expand-file-name "~/Sandbox/mcp.el"))
+(add-to-list 'load-path (expand-file-name "~/Sandbox/gptel"))
+
+;; (use-package mcp
+;;   :ensure t
+;;   :after gptel
+;;   :custom (mcp-hub-servers
+;;            `(("filesystem" . (:command "npx" :args ("-y" "@modelcontextprotocol/server-filesystem" "/home/lizqwer/MyProject/")))
+;;              ("fetch" . (:command "uvx" :args ("mcp-server-fetch")))
+;;              ("qdrant" . (:url "http://localhost:8000/sse"))
+;;              ("graphlit" . (
+;;                             :command "npx"
+;;                             :args ("-y" "graphlit-mcp-server")
+;;                             :env (
+;;                                   :GRAPHLIT_ORGANIZATION_ID "your-organization-id"
+;;                                   :GRAPHLIT_ENVIRONMENT_ID "your-environment-id"
+;;                                   :GRAPHLIT_JWT_SECRET "your-jwt-secret")))))
+;;   :config (require 'mcp-hub)
+;;   :hook (after-init . mcp-hub-start-all-server))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... My Stuff
@@ -815,6 +844,7 @@ commands to use in that buffer."
 (require 'my-closet)
 (require 'my-racket-extras)
 (require 'my-common-lisp-extras)
+(require 'my-gptel)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'my-init)
