@@ -1,6 +1,587 @@
 :PROPERTIES:
 :GPTEL_MODEL: gpt-5
 :GPTEL_BACKEND: ChatGPT
-:GPTEL_SYSTEM: You are a large language model living in Emacs and communicating with me in an org-mode buffer. Respond concisely. When your response contains code, place the code inside an org-mode code block with a caption. You are also a considerate developer and document your code concisely, yet thoroughly. You prefer code that provides simple functions with minimal branching and optional arguments.
-:GPTEL_BOUNDS: ((response (632 960) (1031 2280) (2334 2445) (2500 2502)))
+:GPTEL_SYSTEM: You are a large language model living in Emacs and a helpful assistant. Respond concisely.
+:GPTEL_BOUNDS: ((response (1096 2283) (2365 7483) (7567 8109) (8231 8767) (8871 9840) (10043 10316) (10327 10682) (10693 10894) (10926 11416) (11422 11499) (11501 13328) (13376 13516) (13527 13768) (13825 14054) (14473 16413) (16925 19977)))
 :END:
+:PROPERTIES:
+:GPTEL_MODEL: gpt-4o-mini
+:GPTEL_BACKEND: ChatGPT
+:GPTEL_SYSTEM: You are a large language model living in Emacs and a helpful assistant. Respond concisely.
+
+:END:
+
+*** Overview
+We are working together to define gptel tools in Emacs. We're working
+in an org-mode buffer. When your response contains code, the code
+should be in an org-mode code block. When we define gptel tools we
+will be using a macro named ~my/gptel-defun~ that is defined in the
+~my-gptel.el~ buffer. You should follow the rough guidelines about
+defining tools that are written in that buffer.
+
+*** What do we currently have available?
+Please, write a brief summary of the tools that we already have.
+
+Here’s what’s available right now.
+
+Enabled in this buffer
+- enable-tool-by-name: Enable a gptel tool for this buffer
+- list-all-tools: List all available tools
+- list-enabled-tools: Show tools active in this buffer
+- buffer-mode: Get a buffer’s major mode
+- buffer-read: Read a buffer’s contents
+
+All available tools (catalog)
+- GPTel/meta:
+  - enable-tool-by-name, list-all-tools, list-enabled-tools
+- Buffer management:
+  - buffer-list: List open buffers
+  - buffer-mode: Get major mode
+  - buffer-read: Read contents
+  - my/gptel-buffer-read: Read buffer or region by start/end
+  - buffer-insert, buffer-prepend, buffer-append, buffer-replace: Edit contents
+  - buffer-save: Save buffer
+  - buffer-close: Close buffer (no unsaved changes)
+- Files and paths:
+  - file-open: Open existing file into a buffer
+  - file-exists: Check path existence
+  - file-list: List regular files under a directory
+- Build/shell:
+  - compile: Run compile-command and return output
+  - get-compile-command: Retrieve current compile-command
+  - run-shell-command: Run a shell command and return output
+- Utilities:
+  - open-url: Open a URL in the browser
+  - calc: Evaluate a simple arithmetic expression
+
+*** Suggest some tools that you think might be useful for software development
+
+Here are concise, high-impact tool ideas for software development, grouped by workflow:
+
+- Project
+  - project-root: Get the current project root directory
+  - project-files: List project files
+  - project-search: Grep-like project-wide search (uses ripgrep if available)
+
+- Files
+  - file-create: Create a new file with given content
+  - file-rename: Rename/move a file (and update visiting buffer)
+
+- Version control
+  - vc-git-status: Show branch and porcelain status for the current project
+
+Below are example implementations for these tools.
+
+#+begin_src emacs-lisp
+(my/gptel-defun project-root ()
+  "Return the absolute path of the current project's root directory."
+  (:category "project" :confirm nil)
+  (require 'project)
+  (let* ((proj (project-current t))
+         (root (cond
+                ((fboundp 'project-root) (project-root proj))
+                ((fboundp 'project-roots) (car (project-roots proj)))
+                (t default-directory))))
+    (expand-file-name root)))
+
+(my/gptel-defun project-files ()
+  "List all files in the current project (one per line)."
+  (:category "project" :confirm nil)
+  (require 'project)
+  (let* ((proj (project-current t))
+         (files (if (fboundp 'project-files)
+                    (project-files proj)
+                  ;; Fallback: list tracked files via git, else recurse
+                  (let* ((root (if (fboundp 'project-root)
+                                   (project-root proj)
+                                 (car (project-roots proj))))
+                         (default-directory (expand-file-name root)))
+                    (if (executable-find "git")
+                        (split-string (shell-command-to-string "git ls-files") "\n" t)
+                      (directory-files-recursively default-directory ".*"))))))
+    (mapconcat #'identity files "\n")))
+
+(my/gptel-defun project-search
+  ((:name "pattern" :type "string"
+          :description "Literal or regex search pattern to find within the current project"))
+  "Search the current project for PATTERN using ripgrep if available, else grep -R."
+  (:category "project" :confirm nil)
+  (require 'project)
+  (let* ((proj (project-current t))
+         (root (if (fboundp 'project-root) (project-root proj) (car (project-roots proj))))
+         (default-directory (expand-file-name root))
+         (cmd (if (executable-find "rg")
+                  (format "rg --line-number --column --no-heading --color=never %s"
+                          (shell-quote-argument pattern))
+                (format "grep -RIn --exclude-dir=.git %s ."
+                        (shell-quote-argument pattern)))))
+    (concat (format "Search results in %s for %S:\n\n" default-directory pattern)
+            (shell-command-to-string cmd))))
+
+(my/gptel-defun file-create
+  ((:name "path"    :type "string"
+          :description "Path (absolute or relative to `default-directory') for the new file")
+   (:name "content" :type "string"
+          :description "Initial content to write into the new file"))
+  "Create a new file at PATH with CONTENT, visiting it in a buffer."
+  (:category "filesystem" :confirm t)
+  (cl-assert (stringp path))
+  (cl-assert (stringp content))
+  (let* ((abs (expand-file-name path))
+         (parent (file-name-directory abs)))
+    (cl-assert (not (file-exists-p abs)))
+    (cl-assert (and parent (file-directory-p parent)))
+    (with-temp-file abs (insert content))
+    (let ((buf (find-file-noselect abs t)))
+      (format "Created %s (buffer %s)" abs (buffer-name buf)))))
+
+(my/gptel-defun file-rename
+  ((:name "old-path" :type "string"
+          :description "Existing file to rename (absolute or relative to `default-directory')")
+   (:name "new-path" :type "string"
+          :description "New file path (must not already exist)") )
+  "Rename/move OLD-PATH to NEW-PATH and update any visiting buffer."
+  (:category "filesystem" :confirm t)
+  (let* ((old (expand-file-name old-path))
+         (new (expand-file-name new-path)))
+    (cl-assert (file-exists-p old))
+    (cl-assert (not (file-exists-p new)))
+    (let ((buf (find-buffer-visiting old)))
+      (if buf
+          (with-current-buffer buf
+            (set-visited-file-name new t t)
+            (save-buffer))
+        (rename-file old new)))
+    (format "Renamed %s -> %s" old new)))
+
+(my/gptel-defun vc-git-status ()
+  "Show the current git branch and porcelain status for the project."
+  (:category "vc" :confirm nil)
+  (require 'project)
+  (require 'subr-x)
+  (cl-assert (executable-find "git"))
+  (let* ((proj (project-current t))
+         (root (if (fboundp 'project-root) (project-root proj) (car (project-roots proj))))
+         (default-directory (expand-file-name root)))
+    (cl-assert (file-directory-p (expand-file-name ".git" default-directory)))
+    (let* ((branch (string-trim (shell-command-to-string "git rev-parse --abbrev-ref HEAD 2>/dev/null")))
+           (status (shell-command-to-string "git status --porcelain")))
+      (format "Branch: %s\n\n%s" branch status))))
+#+end_src
+
+If you’d like, I can enable any of these immediately or tailor them (e.g., formatter or test runner) to your stack.
+
+*** Explain
+Please, explain how you would anable any of these tools immediately.
+
+Here’s how I’d enable any of those tools right away:
+
+- After their definitions are evaluated, I enable them per-buffer by invoking the “enable-tool-by-name” tool with the tool’s name (e.g., "project-root", "project-files", "project-search", "file-create", "file-rename", "vc-git-status").
+- I’d run it once per tool you want active in this buffer.
+- I’d then verify with “list-enabled-tools”.
+
+If you want me to do it now, just say which ones (e.g., “Enable project-root, project-files, and vc-git-status”), and I’ll enable them and confirm.
+
+*** So, you would need assistance enabling them because I would need to evaluate their forms for you. Is that correct?
+
+Yes—correct. I can’t evaluate new Emacs Lisp here; you need to load the tool definitions first. After that, I can enable them.
+
+Typical flow:
+1) Ensure my/gptel-defun is loaded (evaluate my-gptel.el).
+2) Insert the tool definitions (org emacs-lisp block or in your .el file).
+3) Evaluate them (C-c C-c on the block, or M-x eval-buffer/load-file).
+4) Tell me which to enable; I’ll run enable-tool-by-name for each and confirm with list-enabled-tools.
+
+If you want, I can insert ready-to-evaluate org code blocks for the tools you choose.
+
+*** What if we had a tool, where you could evaluate an emacs lisp form, with confirmation of course?
+
+Great idea. With a confirmed “eval elisp” tool, I could define/enable other tools myself after you approve each eval.
+
+Here’s a minimal tool that evaluates one Emacs Lisp form (wrap multiple forms in a progn). It uses :confirm t so you’ll be prompted before it runs.
+
+#+begin_src emacs-lisp
+(my/gptel-defun eval-elisp
+  ((:name "form" :type "string"
+          :description "An Emacs Lisp form to evaluate. For multiple forms, wrap them in (progn ...)."))
+  "Evaluate an Emacs Lisp FORM and return its printed result."
+  (:category "eval" :confirm t)
+  (cl-assert (stringp form))
+  (let* ((read-result (read-from-string form))
+         (sexp (car read-result)))
+    (prin1-to-string (eval sexp))))
+#+end_src
+
+How we’d use it
+- You evaluate the code block above once to define the tool.
+- I enable it here via enable-tool-by-name with "eval-elisp".
+- I can then submit forms for evaluation (e.g., a progn that defines/loads other tools), each time with your confirmation.
+
+*** You can now evaluate emacs lisp forms
+I evaluated the definition for the ~eval-lisp~ tool.  Let's see what
+you can do with it.  Go ahead and evaluate the tool definitions that
+you produced above.
+
+All set. I defined and enabled the tools.
+
+Enabled now
+- gptel-project-root
+- gptel-project-files
+- gptel-project-search
+- gptel-file-create
+- gptel-file-rename
+- gptel-vc-git-status
+
+Would you like a quick smoke test (e.g., run gptel-project-root and gptel-vc-git-status)?
+
+*** Yes
+
+Results:
+- Project root: /home/sbj/Sandbox/my-emacs/
+- Git status:
+  Branch: main
+
+   M Makefile
+   M README-GPTel.org
+  M  README.org
+  MM my-gptel.el
+   M my-init.el
+  ?? .#README-GPTel.org
+  ?? my-base-packages.el
+  ?? my-c++-extras.el
+  ?? my-packages.el
+  ?? my-tweaks.el
+
+Looks good. Want me to project-search for something, or create/rename a file?
+
+*** Yes
+
+Great—what should I do?
+
+- Project search: give me a pattern (e.g., my/gptel-defun)
+- Create file: path and initial content
+- Rename file: old path -> new path
+
+Reply with one choice and its arguments.
+
+*** Search for "use-package"
+
+Summary:
+- 158 matches across 8 files.
+- Most hits are in my-init.el; others in my-packages.el, my-base-packages.el (and a backup my-base-packages.el~), plus a few language-specific extras.
+- Some lines are commented-out and one backup file is included.
+
+Next actions (pick one):
+- Extract unique package names (non-comment, non-backup) and count occurrences.
+- Open my-init.el at the first hit.
+- Filter to only non-comment lines.
+- Narrow to a specific file (e.g., my-init.el) or section.
+
+*** Extract unique package names (non-comment, non-backup) and count occurrences.
+
+Here’s what I found.
+
+- Total use-package forms: 110
+- Unique packages: 88
+- Most-used: pcre2el (8)
+- Declared twice (15 pkgs): clang-format, company-rtags, direnv, dockerfile-mode, edts, el-get, graphviz-dot-mode, highlight-thing, json-mode, paredit, paredit-everywhere, paredit-menu, pipenv, rtags, sr-speedbar
+
+Full list (package count):
+#+begin_example
+ac-haskell-process 1
+ansi-color 1
+bnf-mode 1
+cargo 1
+cargo-mode 1
+chatgpt-shell 1
+cider 1
+clang-format 2
+clojure-mode 1
+cmake-font-lock 1
+cmake-mode 1
+company 1
+company-jedi 1
+company-rtags 2
+compiler-explorer 1
+direnv 2
+dockerfile-mode 2
+doxy-graph-mode 1
+dune 1
+dune-format 1
+ebnf-mode 1
+edts 2
+el-get 2
+elpy 1
+flycheck-haskell 1
+flycheck-projectile 1
+flymake-python-pyflakes 1
+flymake-ruff 1
+geiser-chez 1
+geiser-chibi 1
+geiser-chicken 1
+geiser-gambit 1
+geiser-gauche 1
+geiser-guile 1
+geiser-kawa 1
+geiser-racket 1
+git-modes 1
+go-mode 1
+graphviz-dot-mode 2
+haskell-mode 1
+highlight-doxygen 1
+highlight-thing 2
+highlight-unique-symbol 1
+hindent 1
+hy-mode 1
+irony 1
+jedi 1
+json-mode 2
+json-par 1
+julia-repl 1
+lazy-ruff 1
+lsp-haskell 1
+lsp-mode 1
+lsp-ui 1
+magit 1
+markdown-mode 1
+markdown-preview-eww 1
+markdown-preview-mode 1
+merlin 1
+merlin-company 1
+merlin-eldoc 1
+merlin-iedit 1
+mermaid-mode 1
+modern-cpp-font-lock 1
+opam-switch-mode 1
+org-tempo 1
+ormolu 1
+paredit 2
+paredit-everywhere 2
+paredit-menu 2
+pcre2el 8
+pickle 1
+pipenv 2
+plantuml-mode 1
+powershell 1
+projectile 1
+projectile-speedbar 1
+python-black 1
+racket-mode 1
+rtags 2
+rust-mode 1
+scad-mode 1
+scribble-mode 1
+sr-speedbar 2
+toml-mode 1
+tuareg 1
+utop 1
+yaml-mode 1
+#+end_example
+
+What next?
+- Per-file breakdown of these packages
+- Jump to first/next occurrence of a package (name?)
+- Remove duplicates or consolidate multiple declarations (which packages?)
+- Open my-init.el at the first use-package form
+
+*** Jump to the first occurrence of paredit
+
+
+Jumped to first paredit occurrence.
+- Opened: my-init.el:224
+
+Want me to jump to the next occurrence, or narrow the buffer around this spot?
+
+*** Yes
+
+Jumped to next occurrence: /home/sbj/Sandbox/my-emacs/README-GPTel.org:287.
+
+What next?
+- Jump to the next occurrence
+- Show ~10 lines of context here
+- Restrict to my-init.el only and iterate there
+- Narrow the buffer around this occurrence
+
+*** Try again
+Jump to the next occurance of "paredit"
+
+Jumped to next occurrence:
+- /home/sbj/Sandbox/my-emacs/my-init.el:349:13
+
+Options:
+- Jump again to the next occurrence
+- Show 8–10 lines of context here
+- Continue only within my-init.el
+- Switch to occurrences in my-packages.el
+
+*** Running in a Container
+I would like to run in a container when I am working with you, because
+I feel it will allow me to be more permissive with the tools I allow
+you to use while maintaining some safety.
+
+Please, write a Dockerfile for us to use.  I'm currently using Ubuntu
+22.04.5 LTS. The image will need emacs installed.  I will also need a
+bash script here to build the image and run emacs in a container.
+
+Below are a Dockerfile and a simple build/run script. The script builds the image and runs Emacs in the terminal inside a container, mounting your current directory and a persistent container home.
+
+#+begin_src dockerfile :tangle Dockerfile
+FROM ubuntu:22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Base tools + Emacs (terminal), git, ripgrep, TLS, locales
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      emacs-nox git ripgrep ca-certificates locales tzdata curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Locale
+RUN sed -i 's/^# \(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && locale-gen
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
+WORKDIR /workspace
+#+end_src
+
+#+begin_src sh :tangle run-emacs-container.sh
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Image name can be overridden: IMG_NAME=my-emacs:22.04 ./run-emacs-container.sh
+IMG_NAME="${IMG_NAME:-emacs-gptel:22.04}"
+
+# Resolve script directory (where Dockerfile lives)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Persistent container HOME on host
+CONTAINER_HOME="${SCRIPT_DIR}/container-home"
+mkdir -p "${CONTAINER_HOME}"
+
+echo "Building image ${IMG_NAME}..."
+docker build -t "${IMG_NAME}" -f "${SCRIPT_DIR}/Dockerfile" "${SCRIPT_DIR}"
+
+# Default to terminal Emacs (-nw). Pass any extra args to Emacs.
+EMACS_ARGS=("$@")
+if [ ${#EMACS_ARGS[@]} -eq 0 ]; then
+  EMACS_ARGS=(-nw)
+fi
+
+echo "Starting Emacs in container..."
+exec docker run --rm -it \
+  -u "$(id -u)":"$(id -g)" \
+  -e HOME=/home/work \
+  -e LANG=en_US.UTF-8 -e LC_ALL=en_US.UTF-8 \
+  -v "${CONTAINER_HOME}:/home/work" \
+  -v "$PWD:/workspace" \
+  -w /workspace \
+  "${IMG_NAME}" emacs "${EMACS_ARGS[@]}"
+#+end_src
+
+Notes
+- Run chmod +x run-emacs-container.sh, then ./run-emacs-container.sh to build and launch Emacs.
+- Your current directory is mounted at /workspace; container HOME persists in ./container-home.
+- Pass Emacs args as needed, e.g., ./run-emacs-container.sh -Q -nw.
+
+*** Changes
+I don't want to run with elevated privileges in the container. I would
+like to have a user added that has the same username as the user that
+builds the image.  The user should have a home directory created when
+the user is added. When the container runs, it should start with this
+user as the user and it should be in the home directory of the user.
+
+I want the graphical version of emacs, not emacs-nox.  The script
+should be setup to set the DISPLAY environment variable to properly
+show emacs.
+
+Below are updated files that meet your requirements.
+
+- Creates a user matching your host username/UID/GID at build time
+- Starts as that user in their home directory
+- Installs graphical Emacs (GTK)
+- Script passes DISPLAY and mounts X11 socket so Emacs GUI shows on host
+
+#+begin_src dockerfile :tangle Dockerfile
+FROM ubuntu:22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG USERNAME
+ARG UID
+ARG GID
+
+# Base tools + GUI Emacs, git, ripgrep, TLS, locales, tzdata, curl
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      emacs-gtk git ripgrep ca-certificates locales tzdata curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Locales
+RUN sed -i 's/^# \(en_US.UTF-8 UTF-8\)/\1/' /etc/locale.gen && locale-gen
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
+# Create user and group to match the host user
+RUN test -n "${USERNAME}" && test -n "${UID}" && test -n "${GID}"
+RUN groupadd -g "${GID}" "${USERNAME}" && \
+    useradd -m -u "${UID}" -g "${GID}" -s /bin/bash "${USERNAME}"
+
+# Default to the created user and their home directory
+USER ${USERNAME}
+WORKDIR /home/${USERNAME}
+#+end_src
+
+#+begin_src sh :tangle run-emacs-container.sh
+  #!/usr/bin/env bash
+  set -euo pipefail
+
+  # Image name can be overridden: IMG_NAME=my-emacs:22.04 ./run-emacs-container.sh
+  IMG_NAME="${IMG_NAME:-emacs-gptel:gui-22.04}"
+
+  # Host user info to mirror inside the image
+  HOST_USER="$(id -un)"
+  HOST_UID="$(id -u)"
+  HOST_GID="$(id -g)"
+
+  # Resolve script directory (where Dockerfile lives)
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  # Ensure DISPLAY is set; default to :0 if missing
+  DISPLAY="${DISPLAY:-:0}"
+
+  echo "Building image ${IMG_NAME} for user ${HOST_USER} (${HOST_UID}:${HOST_GID})..."
+  docker build -t "${IMG_NAME}" -f "${SCRIPT_DIR}/Dockerfile" \
+    --build-arg USERNAME="${HOST_USER}" \
+    --build-arg UID="${HOST_UID}" \
+    --build-arg GID="${HOST_GID}" \
+    "${SCRIPT_DIR}"
+
+  # Best-effort: allow the host X server to accept connections from this local user
+  if command -v xhost >/dev/null 2>&1; then
+    xhost +SI:localuser:"${HOST_USER}" >/dev/null 2>&1 || true
+  fi
+
+  # Mount current directory into the container user's home
+  WORKSPACE_MNT="/home/${HOST_USER}/workspace"
+
+  # Pass through DISPLAY and X11 socket for GUI
+  # Extra arguments are forwarded to Emacs (e.g., ./run-emacs-container.sh -Q)
+  EMACS_ARGS=("$@")
+
+  echo "Starting Emacs GUI in container..."
+  exec docker run --rm -it \
+    -e DISPLAY="${DISPLAY}" \
+    -v /tmp/.X11-unix:/tmp/.X11-unix:ro \
+    -v "$PWD:${WORKSPACE_MNT}" \
+    -w "/home/${HOST_USER}" \
+    "${IMG_NAME}" emacs "${EMACS_ARGS[@]}"
+#+end_src
+
+Notes
+- Make the script executable: chmod +x run-emacs-container.sh
+- Launch: ./run-emacs-container.sh (opens Emacs GUI). Pass flags as needed, e.g., ./run-emacs-container.sh -Q
+- If Emacs doesn’t appear, ensure you’re running under X11/XWayland and that xhost is allowing local connections:
+  - xhost +SI:localuser:$USER
+  - or broader (less strict): xhost +local:
+- Your current directory is available inside the container at ~/workspace. You start in your container home directory.
+
+***
