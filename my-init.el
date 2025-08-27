@@ -23,7 +23,7 @@
 ;; (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
 (require 'org)
 (use-package org-tempo :demand t)
-(add-hook 'org-mode-hook 'auto-fill-mode)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -32,7 +32,7 @@
 
 ;; down with tabs
 (setq-default indent-tabs-mode nil)
-
+(add-hook 'org-mode-hook 'auto-fill-mode)
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.

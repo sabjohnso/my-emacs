@@ -1,8 +1,39 @@
-;; gptel basic setup (assuming your OPENAI_API_KEY env var is set) -*- lexical-binding: t -*-
+;;; my-gptel.el -*- lexical-binding: t -*-
+;; Copyright (C) 2025 Samuel B. Johnson
 
+;;; Commentary
+;; This file primarily contains the definition of gptel-tools and
+;; functions/macros to help define them. Tools are defined with the
+;; macro `my/gptel-defun', which combines the definition of the tool's
+;; function and the tool object used by gptel to call the function.
+;;
+;; Tools should be defined with a very specific job, and only one
+;; job. Optional arguments should be used very sparingly where the
+;; additional complexity that comes with there use can be justified by
+;; the additional value they add.
+
+;; Unnecessary arguments should be avoided. For example, a tool to
+;; append content to a buffer should not have an optional argument
+;; controlling whether a new line is added at the end of the content.
+;; Instead, the LLM should be instructed to add a new line when to
+;; content that it appeds to the  end of the file.
+;;
+;; Tools should not include extra code to handle errors. The gptel
+;; package already handles errors and doing it here just adds
+;; unnecessary complexity. In the body of the tool function.
+;; The macro `cl-assert' should be used to validate that input matches
+;; its specification as early in the function definition as early as
+;; is reasonable, rather than using elaborate logic intertwined in the
+;; primary logic of the function to ferret out  errors. The assertions
+;; provide both validation of the functions contract, and
+;; documentation for human beings and LLMs that can read the
+;; definition.  Further, any constraints on a function argument,
+;; beyond the  type, should be documented in the  arguments
+;; description and  verified with assertions.
 
 (require 'gptel)
 (require 'cl-lib)
+
 
 
 (defgroup my/gptel nil
@@ -33,6 +64,7 @@ kept and subsequent tools with the same name are discarded."
                              (cons (car remaining-tools) accum)))))))
     (recur tools nil nil)))
 
+
 (cl-defun my/gptel-register-tool (tool-object)
   "Add a tool to the registry of defined tools.  Note that this does not make
 the tool available for use, only available to be enabled for use."
@@ -41,6 +73,7 @@ the tool available for use, only available to be enabled for use."
         (my/gptel--make-tool-list-unique-by-name
          (cons tool-object my/gptel-all-tools)))
   (gptel-tool-name tool-object))
+
 
 (cl-defun my/gptel--rappend (xs ys)
   (cl-assert (listp xs))
@@ -52,13 +85,11 @@ the tool available for use, only available to be enabled for use."
              (cons (car xs) ys)))))
 
 
-
 (cl-defun my/gptel-register-global-tool (tool-object)
   "Add a gptel tool to the list global gptel tools"
   (setq my/gptel-global-tools
         (my/gptel--make-tool-list-unique-by-name
          (cons tool-object my/gptel-global-tools))))
-
 
 
 (cl-defun my/gptel-deregister-tool (tool-name)
@@ -108,15 +139,18 @@ Otherwise, return `nil'"
         (setq remaining-arg-specs (cdr remaining-arg-specs))))
     result))
 
+
 (cl-defun my/gptel--symbol-to-keyword (name)
   "Return a keyword corresponding to the non-keyword input symbol"
   (cl-assert (not (keywordp name)))
   (intern (format ":%s" name)))
 
+
 (cl-defun my/gptel--string-to-keyword (name)
   "Return a keyword symbol corresponding to the input string"
   (cl-assert (stringp name))
   (my/gptel--symbol-to-keyword (intern name)))
+
 
 (cl-defun my/gptel--partition-arg-specs (arg-specs)
   "Return the names from the argument specs, separated into two list,
@@ -129,6 +163,7 @@ list contains the optional arguments."
                  ((my/gptel--optional-arg-spec-p (car remaining-specs)) (list (reverse required-specs) (mapcar (lambda (spec) (intern (plist-get spec :name))) remaining-specs)))
                  (t (recur (cdr remaining-specs) (cons (intern (plist-get (car remaining-specs) :name)) required-specs))))))
     (recur arg-specs nil)))
+
 
 (cl-defun my/gptel--arg-spec-to-doc-string (arg-spec)
   "Given an argspec, return documentation"
@@ -143,16 +178,23 @@ list contains the optional arguments."
     (string-join (mapcar #'my/gptel--arg-spec-to-doc-string arg-specs) "\n")))
 
 
+(defun my/gptel--lambda-list-p (arg)
+  "Return `t' if the input is a list of proper argument specifications
+for a gptel tool. Otherwise, return `nil'"
+  (plistp arg))
+
+
 (cl-defmacro my/gptel-defun (tool-name (&rest arg-specs) doc (&rest attributes) &rest body)
   "Define a gptel tool and its runtime function in a single form.
 
-`NAME' is a symbol used as the tool's external name (e.g., buffer-read).
+`TOOL-NAME' is a symbol used as the tool's external name (e.g., buffer-read).
 This macro defines:
-- Function: `my/gptel-NAME'
-- Tool var: `my/gptel-NAME-tool'
-- Tool name (seen by the model): \"NAME\"
+- Function: `my/gptel-<TOOL-NAME>'
+- Tool OBJECT: `my/gptel-<TOOL-NAME>-tool'
+- Tool name (seen by the model): \"TOOL-NAME\"
 
-`ARG-SPECS' is a list of plists describing parameters (mirrors the tool :args).
+`ARG-SPECS' is a list of plists describing parameters (used for
+the tool :args praameter and the function argument names).
 Each plist should contain:
   :name        string
   :description string
@@ -165,11 +207,13 @@ docstring. The docstring is automatically augmented with a
 \"Parameters:\" section built from ARG-SPECS.
 
 `ATTRIBUTES' is a plist containing additional attributes for the tool object.
-These would include attributes like :category and :confirm.
+These would include attributes like `:category', `:confirm', `:async',
+`:include'.
 
-`BODY' is the implementation of the my/gptel-NAME function. It must
+`BODY' is the implementation of the `my/gptel-<TOOL-NAME>' function. It must
 return a string (what gptel will send back to the model)."
-  ;; (declare (doc-string 3) (indent defun))
+  (declare
+   (doc-string 3) (indent defun))
   (cl-assert (symbolp tool-name))
   (cl-assert (stringp doc))
   (cl-assert (cl-every #'plistp arg-specs))
@@ -195,7 +239,8 @@ return a string (what gptel will send back to the model)."
 
 
 (my/gptel-defun calc
-  ((:name "expr" :description "The arithmetic expression that is to be evaluated" :type "string"))
+  ((:name "expr" :type "string"
+    :description "The arithmetic expression that is to be evaluated" ))
   "Evaluate a basic arithmetic expression and return the result as a string."
   (:category "utility"
    :confirm nil)
@@ -226,180 +271,107 @@ return a string (what gptel will send back to the model)."
             collecting (format "%s - %s" (gptel-tool-name tool) (gptel-tool-description tool)))
    "\n"))
 
+
 (my/gptel-register-global-tool my/gptel-list-enabled-tools-tool)
 
 
 (my/gptel-defun buffer-read
-  ((:name "buffer"    :description "Name of the buffer to read. Default: current buffer." :type "string" :optional t)
-   (:name "start"     :description "1-based start position. Default: beginning of buffer." :type "integer" :optional t)
-   (:name "end"       :description "1-based end position. Default: end of buffer." :type "integer" :optional t))
-  "Return the content of an Emacs buffer as a plain string (`BUFFER').
-Optionally, restrict reading to a region defined by the positions
-`START' and `END'."
-  (:category "utility"
-   :confirm nil)
-  (let* ((buf (if (and buffer (not (equal buffer "")))
-                  (get-buffer buffer)
-                (current-buffer))))
-    (unless (buffer-live-p buf)
-      (user-error "Buffer not found: %s" (or buffer "<current>")))
-    (with-current-buffer buf
-      (save-restriction
-        (widen)
-        ;; Normalize and clamp region to valid bounds.
-        (let* ((beg (if (and (integerp start) (> start 0))
-                        (min (max start (point-min)) (point-max))
-                      (point-min)))
-               (fin (if (and (integerp end) (> end 0))
-                        (min (max end (point-min)) (point-max))
-                      (point-max))))
-          (cl-assert (<= beg fin))
-          (let ((text (buffer-substring-no-properties beg fin)))
-            text))))))
+  ((:name "buffer-name"
+    :description "Name of the buffer to read. The buffer name
+must be the name of an active buffer."
+    :type "string"))
+  "Return the content of an Emacs buffer with name `BUFFER-NAME' as a
+plain string."
+  (:category "utility" :confirm nil)
+  (cl-assert (my/gptel--live-buffer-name-p buffer-name))
+  (let ((buffer (get-buffer buffer-name)))
+    (with-current-buffer buffer
+      (buffer-string))))
+
 
 (my/gptel-defun buffer-mode
-  ((:name "buffer"
+  ((:name "buffer-name"
     :type "string"
-    :description "Name of the buffer to inspect. Defaults to the current buffer."
-    :optional t))
+    :description "Name of the buffer to inspect.
+The name must be the name of an active buffer."))
   "Return the major mode of a buffer as a readable string."
-  (:category "utility"
-   :confirm nil)
-  (condition-case err
-      (let* ((buf (if (and buffer (not (equal buffer "")))
-                      (get-buffer buffer)
-                    (current-buffer))))
-        ;; Validate buffer existence.
-        (unless (buffer-live-p buf)
-          (user-error "Buffer not found: %s" (or buffer "<current>")))
-        (with-current-buffer buf
-          ;; major-mode is the symbol; mode-name is the user-facing name.
-          ;; format-mode-line ensures a robust string for mode-name.
-          (let* ((mode-sym major-mode)
-                 (mode-str (format-mode-line mode-name))
-                 (buf-name (buffer-name)))
-            (format "Buffer: %s\nMajor mode: %s\nMode name: %s"
-                    buf-name mode-sym mode-str))))
-    ;; Return a readable error message rather than signaling upstream.
-    (error (format "Error: %s" (error-message-string err)))))
+  (:category "utility" :confirm nil)
+  (cl-assert (my/gptel--live-buffer-name-p buffer-name))
+  (let ((buffer (get-buffer buffer-name)))
+    (with-current-buffer buffer
+      (symbol-name major-mode))))
 
-(my/gptel-defun buffer-list
-  ()
+
+(my/gptel-defun buffer-list ()
   "Return the names of all open buffers as a newline-separated string."
   (:category "introspection"
    :confirm nil)
   ;; Collect live buffer names (including special/internal like *Messages*).
-  (let ((names (cl-loop for buf in (buffer-list)
-                        for name = (buffer-name buf)
-                        when name
-                        collect name)))
+  (let ((names
+         (cl-loop for buf in (buffer-list)
+                  for name = (buffer-name buf)
+                  when name
+                  collect name)))
     (mapconcat #'identity names "\n")))
 
+
 (my/gptel-defun buffer-replace
-  ((:name "content" :type "string" :description "New contents for the buffer.")
-   (:name "buffer"  :type "string" :description "Name of the buffer to modify. Defaults to the current buffer." :optional t))
+  ((:name "content" :type "string"
+    :description "New contents for the buffer.")
+   (:name "buffer-name"  :type "string"
+    :description "Name of the buffer to modify. The buffer name
+ must be the name of an active, writable buffer."))
   "Replace the entire contents of a buffer with CONTENT, returning a
 confirmation message."
-  (:category "editing"
-   :confirm t)
-  (condition-case err
-      (let* ((buf (if (and buffer (not (equal buffer "")))
-                      (get-buffer buffer)
-                    (current-buffer))))
-        (unless (buffer-live-p buf)
-          (user-error "Buffer not found: %s" (or buffer "<current>")))
-        (unless (stringp content)
-          (user-error "CONTENT must be a string"))
-        (with-current-buffer buf
-          (save-restriction
-            (widen)
-            (let* ((inhibit-read-only t)
-                   (old-len (max 0 (- (point-max) (point-min)))))
-              (erase-buffer)
-              (insert content)
-              (format "Replaced content of %s (%d -> %d chars)."
-                      (buffer-name buf) old-len (length content))))))
-    (error (format "Error: %s" (error-message-string err)))))
+  (:category "editing" :confirm t)
+  (cl-assert (my/gptel--writable-live-buffer-name-p buffer-name))
+  (let ((buffer  (get-buffer buffer-name)))
+    (with-current-buffer buffer
+      (save-restriction
+        (widen)
+        (erase-buffer)
+        (insert content)))
+   (format "Replaced the content of buffer %s" buffer-name)))
+
 
 (my/gptel-defun buffer-append
-  ((:name "content"         :type "string"  :description "Text to append to the buffer.")
-   (:name "buffer"          :type "string"  :description "Name of the buffer to modify. Defaults to the current buffer." :optional t)
-   (:name "ensure-newline"  :type "boolean" :description "If non-nil, insert a newline before CONTENT when
-the buffer does not end with one." :optional t))
+  ((:name "content"     :type "string"  :description "Text to append to the buffer.")
+   (:name "buffer-name"  :type "string"
+    :description "Name of the buffer to modify. The buffer name
+ must be the name of an active, writable buffer."))
   "Append `CONTENT' to the end of `BUFFER', returning a confirmation
  message."
-  (:category "editing"
-   :confirm t)
-  (condition-case err
-      (let* ((buf (if (and buffer (not (equal buffer "")))
-                      (get-buffer buffer)
-                    (current-buffer))))
-        ;; Validate target buffer and input type.
-        (unless (buffer-live-p buf)
-          (user-error "Buffer not found: %s" (or buffer "<current>")))
-        (unless (stringp content)
-          (user-error "CONTENT must be a string"))
-        (with-current-buffer buf
-          (save-restriction
-            (widen)
-            (let ((inhibit-read-only t)
-                  (before-size (buffer-size)))
-              (goto-char (point-max))
-              ;; Optionally ensure a trailing newline before appending.
-              (when ensure-newline
-                (unless (or (= (point) (point-min))
-                            (eq (char-before) ?\n))
-                  (insert "\n")))
-              ;; Append the content and report.
-              (insert content)
-              (format "Appended %d chars to %s (size %d -> %d)."
-                      (length content)
-                      (buffer-name buf)
-                      before-size
-                      (buffer-size))))))
-    (error (format "Error: %s" (error-message-string err)))))
+  (:category "editing" :confirm t)
+  (cl-assert (my/gptel--writable-live-buffer-name-p buffer-name))
+  (let ((buffer (get-buffer buffer-name)))
+    (with-current-buffer buffer
+      (save-restriction
+        (widen)
+        (let ((original-content (buffer-string)))
+          (erase-buffer)
+          (insert (concat original-content content))))))
+  (format "Appended the content to buffer %s" buffer-name))
+
 
 (my/gptel-defun buffer-prepend
-  ((:name "content"         :type "string"  :description "Text to prepend to the buffer.")
-   (:name "buffer"          :type "string"  :description
-          "Name of the buffer to modify. Defaults to the current buffer." :optional t)
-   (:name "ensure-newline"  :type "boolean"
-          :description
-          "If non-nil and the buffer is non-empty, ensure there is a newline
- after CONTENT so the original text starts on a new line." :optional t))
-  "Prepend `CONTENT' to the beginning of `BUFFER', returning a
+  ((:name "content"     :type "string"
+          :description "Text to prepend to the buffer.")
+
+   (:name "buffer-name" :type "string"
+    :description
+    "Name of the buffer to modify"))
+  "Prepend `CONTENT' to the beginning of `BUFFER-NAME', returning a
 confirmation message."
-  (:category "editing"
-   :confirm t)
-  (condition-case err
-      (let* ((buf (if (and buffer (not (equal buffer "")))
-                      (get-buffer buffer)
-                    (current-buffer))))
-        ;; Validate target buffer and input type.
-        (unless (buffer-live-p buf)
-          (user-error "Buffer not found: %s" (or buffer "<current>")))
-        (unless (stringp content)
-          (user-error "CONTENT must be a string"))
-        (with-current-buffer buf
-          (save-restriction
-            (widen)
-            (let ((inhibit-read-only t)
-                  (before-size (buffer-size))
-                  (was-empty (= (point-min) (point-max))))
-              (goto-char (point-min))
-              ;; Insert the new content.
-              (insert content)
-              ;; Optionally ensure a newline boundary before the original text.
-              (when (and ensure-newline
-                         (not was-empty)
-                         (not (eq (char-before) ?\n)))
-                (insert "\n"))
-              (format "Prepended %d chars to %s (size %d -> %d)."
-                      (length content)
-                      (buffer-name buf)
-                      before-size
-                      (buffer-size))))))
-    (error (format "Error: %s" (error-message-string err)))))
+  (:category "editing" :confirm t)
+  (cl-assert (my/gptel--writable-live-buffer-name-p buffer-name))
+  (let ((buffer (get-buffer buffer-name)))
+    (with-current-buffer buffer
+      (save-restriction
+        (widen)
+        (let ((original-content (buffer-string)))
+          (erase-buffer)
+          (insert (concat content original-content))))))
+  (format "Appended the content to buffer %s" buffer-name))
 
 (cl-defun my/gptel--live-buffer-name-p (buffer-name)
   "Return `t' if `BUFFER-NAME' is the name of a live buffer.
@@ -415,62 +387,44 @@ file. Otherwise return `nil'"
 (cl-defun my/gptel--buffer-read-only-p (buffer)
   "Return `t' if the buffer is read only. Otherwise return `nil'"
   (cl-assert (bufferp buffer))
-  (with-current-buffer
-      buffer-read-only buffer))
+  (with-current-buffer buffer
+    buffer-read-only))
 
 (cl-defun my/gptel--buffer-writable-p (buffer)
   "Return `t' if the buffer is writable.  Otherwise return `nil'."
   (cl-assert (bufferp buffer))
   (not (my/gptel--buffer-read-only-p buffer)))
 
+(cl-defun my/gptel--writable-live-buffer-name-p (buffer-name)
+  "Return `t' if the buffer name corresponds to an active buffer that
+is writable."
+  (and (my/gptel--live-buffer-name-p buffer-name)
+       (my/gptel--buffer-writable-p (get-buffer buffer-name))))
+
 
 (my/gptel-defun buffer-insert
   ((:name "content"     :type "string"  :description "Text to insert.")
    (:name "position"    :type "integer"
-          :description "1-based index at which to insert. 1 inserts at BOB;
- buffer length+1 appends at EOB.")
-   (:name "buffer-name" :type "string"  :description "Buffer name. Defaults to current buffer."))
+          :description "1-based index at which to insert.
+1 inserts at beginning of the buffer;
+buffer length+1 appends at the end of the buffer.")
+   (:name "buffer-name"  :type "string"
+    :description "Name of the buffer to modify. The buffer name
+ must be the name of an active, writable buffer."))
   "Insert `CONTENT' at `POSITION' in `BUFFER-NAME' and report a
 confirmation message. `BUFFER-NAME' must be the name of a live
 buffer that is  writable"
-  (:category "editing"
-   :confirm t)
-
+  (:category "editing" :confirm t)
   (cl-assert (stringp content))
   (cl-assert (integerp position))
   (cl-assert (my/gptel--live-buffer-name-p buffer-name))
-
-  (condition-case err
-      (let* ((buf (if (and buffer-name (not (equal buffer-name "")))
-                      (get-buffer buffer-name)
-                    (current-buffer))))
-        ;; Validate target buffer and inputs.
-        (unless (buffer-live-p buf)
-          (user-error "Buffer not found: %s" (or buffer-name "<current>")))
-        (unless (stringp content)
-          (user-error "CONTENT must be a string but received %s " content))
-        (unless (and (integerp position) (> position 0))
-          (user-error "POSITION must be a positive integer (1-based)"))
-        (with-current-buffer buf
-          (save-restriction
-            (widen)
-            (let* ((inhibit-read-only t)
-                   (before-size (buffer-size))
-                   ;; Clamp 1-based POSITION to [1, length+1].
-                   (len before-size)
-                   (pos-1-based (min (max position 1) (1+ len)))
-                   ;; Convert to buffer point. point-min is 1 when widened.
-                   (ipos (+ (point-min) (1- pos-1-based))))
-              (goto-char ipos)
-              (insert content)
-
-              (format "Inserted %d chars at position %d in %s (size %d -> %d)."
-                      (length content)
-                      pos-1-based
-                      (buffer-name buf)
-                      before-size
-                      (buffer-size))))))
-    (error (format "Error: %s" (error-message-string err)))))
+  (let ((buffer (get-buffer buffer-name)))
+    (with-current-buffer buffer
+      (save-restriction
+        (widen)
+        (goto-char position)
+        (insert content))))
+  (format "Inserted the content into buffer %s at position %d" buffer-name position))
 
 (my/gptel-defun file-exists
   ((:name "path" :type "string" :description "File path to check (may be relative to `default-directory')."))
@@ -500,12 +454,9 @@ string indicating whether the path is to an existing file."
   ((:name "buffer-name" :type "string" :description "Name of the buffer to save. Defaults to the current buffer."))
   "Save BUFFER to its visited file, where BUFFER must be and existing
 buffer that is visiting a file"
-  (:category "filesystem"
-   :confirm t)
-  (cl-assert (stringp buffer-name))
-  (cl-assert (not (equal buffer-name "")))
+  (:category "filesystem" :confirm t)
+  (cl-assert (my/gptel--live-file-buffer-name-p buffer-name))
   (let ((buffer (get-buffer buffer-name)))
-    (cl-assert (buffer-live-p buffer))
     (cl-assert (buffer-file-name buffer))
     (with-current-buffer buffer
       (save-buffer))
@@ -515,110 +466,30 @@ buffer that is visiting a file"
   ((:name "buffer-name" :type "string" :description "Name of the buffer to close"))
   "Close BUFFER, where BUFFER is an existing buffer, and if buffer is
 visiting a file, it must not have any unsaved changes."
-  (:category "filesystem"
-   :confirm t)
-  (cl-assert (stringp buffer-name))
-  (cl-assert (not (equal buffer-name "")))
+  (:category "filesystem" :confirm nil)
+  (cl-assert (my/gptel--live-file-buffer-name-p buffer-name))
   (let ((buffer (get-buffer buffer-name)))
-    (cl-assert (buffer-live-p buffer))
     (cl-assert (or (not (buffer-file-name buffer)) (not (buffer-modified-p buffer))))
     (kill-buffer buffer)))
 
 
-(my/gptel-defun compile
-  ((:name "command"   :type "string"  :description "Shell command to run. Default: value of `compile-command'." :optional t)
-   (:name "directory" :type "string"  :description "Run in this directory. Default: current buffer's `default-directory'." :optional t)
-   (:name "display"   :type "boolean" :description "If non-nil, display the compilation buffer after starting." :optional t))
-  "Start an asynchronous compilation and report the buffer name,
-directory, and command."
-  (:category "software development"
-   :confirm t)
-  (condition-case err
-      (let* ((cmd (or command compile-command))
-             (_   (unless (and (stringp cmd) (not (string-empty-p cmd)))
-                    (user-error "Compilation command must be a non-empty string")))
-             (dir (if (and directory (not (equal directory "")))
-                      (expand-file-name directory)
-                    default-directory))
-             (_   (unless (file-directory-p dir)
-                    (user-error "Not a directory: %s" dir)))
-             ;; Start compilation in DIR using Emacs' standard machinery.
-             (buf (let ((default-directory dir))
-                    (compilation-start cmd t (lambda (_m) "*Compilation*")))))
-        ;; Optionally display the buffer; compilation-start usually shows it already,
-        ;; but we make it explicit when DISPLAY is requested.
-        (when (and display (buffer-live-p buf))
-          (pop-to-buffer buf))
-        (format "Started compilation\nBuffer: %s\nDirectory: %s\nCommand: %s"
-                (buffer-name buf) dir cmd))
-    (error (format "Error: %s" (error-message-string err)))))
+(my/gptel-defun run-shell-command
+  ((:name "command" :type "string"
+    :description "A command to be executed in the bash shell"))
+  "Execute `COMMAND' in a shell and return the text output as a string"
+  (:category "utility" :confirm t)
+  (shell-command-to-string command))
 
+(my/gptel-defun get-compile-command ()
+  "Return the current value of `compile-command' as a string"
+  (:category "utility" :confirm nil)
+  compile-command)
 
-(my/gptel-defun file-list
-  ((:name "directory"      :type "string"  :description "Root directory to list files under.")
-   (:name "pattern"        :type "string"  :description "Regexp matched against each file's relative path." :optional t)
-   (:name "include-hidden" :type "boolean" :description "Include dotfiles and files under dot-directories when non-nil." :optional t)
-   (:name "absolute"       :type "boolean" :description "Return absolute paths when non-nil (default). Otherwise relative." :optional t)
-   (:name "limit"          :type "integer" :description "Maximum number of results to return." :optional t))
-  "List all regular files below DIRECTORY and return them as a
-newline-separated string."
-  (:category "filesystem"
-   :confirm t)
-  (condition-case err
-      (let* ((root (expand-file-name directory)))
-        ;; Validate directory
-        (unless (and (stringp directory) (file-directory-p root))
-          (user-error "Not a directory: %s" (or directory "")))
-        (let ((abs-default (if (boundp 'absolute) absolute t)))
-          (cl-labels
-              ;; Hidden path check: any component starting with "."?
-              ((hidden-path-p (rel)
-                 (catch 'hidden
-                   (dolist (comp (split-string rel "/" t))
-                     (when (and (> (length comp) 0)
-                                (eq (aref comp 0) ?.))
-                       (throw 'hidden t)))
-                   nil))
-               ;; Depth-first traversal that collects regular files; does not follow symlinked dirs.
-               (walk (dir acc)
-                 (let* ((entries (directory-files dir t nil t))) ; absolute names
-                   (dolist (e entries acc)
-                     (let ((base (file-name-nondirectory e)))
-                       (unless (member base '("." ".."))
-                         (cond
-                          ((and (file-directory-p e)
-                                (not (file-symlink-p e)))
-                           (setq acc (walk e acc)))
-                          ((file-regular-p e)
-                           (push e acc)))))))))
-            (let* ((all (walk root nil))
-                   ;; Sort deterministically
-                   (all (sort all #'string<))
-                   ;; Convert to relative for filtering and for final mapping if needed
-                   (rels (mapcar (lambda (p) (file-relative-name p root)) all))
-                   ;; Apply hidden filter unless include-hidden
-                   (rels (if include-hidden
-                             rels
-                           (cl-remove-if #'hidden-path-p rels)))
-                   ;; Apply optional regexp filter on relative paths
-                   (rels (if (and (stringp pattern) (not (equal pattern "")))
-                             (cl-remove-if-not (lambda (r) (string-match-p pattern r)) rels)
-                           rels))
-                   ;; Map to output paths: absolute or relative
-                   (outs (mapcar (lambda (r) (if abs-default
-                                                 (expand-file-name r root)
-                                               r))
-                                 rels))
-                   ;; Apply optional limit
-                   (outs (if (and (integerp limit) (> limit 0))
-                             (cl-subseq outs 0 (min limit (length outs)))
-                           outs)))
-              (if outs
-                  (mapconcat #'identity outs "\n")
-                "No files found.")))))
-    (error (format "Error: %s" (error-message-string err)))))
-
-
+(my/gptel-defun compile ()
+  "Execute `compile-command' and return the output as a string"
+  (:category "utility" :confirm t)
+  (concat (format "Executed the command \"%s\" a which produced the following output:\n\n" compile-command)
+          (shell-command-to-string compile-command)))
 
 (my/gptel-defun list-all-tools ()
   "Return a list with the name and description of all available tools"
@@ -640,7 +511,6 @@ newline-separated string."
                         (recur (cdr remaining-tools))))
                   (error "Could not find a tool with the provided name: %s" name))))
     (recur my/gptel-all-tools)))
-
 
 
 (my/gptel-defun enable-tool-by-name

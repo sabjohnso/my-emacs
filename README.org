@@ -1,7 +1,27 @@
 #+TITLE: My Emacs
 
-* Backlog
-** TODO Fix font resizing on different monitors
+* Important Notice
+Though I do no place any restrictions on the use of this code, it is
+not intended for public consumption, but rather, contains my personal
+configuration/hacks/patches for emacs.  No support is offered, or will
+be provide and the code may change drastically or be eliminated
+without and most likely without sufficient forethought or rational
+considerations.
+
+* Overview
+
+* Modules
+** Initialization: ~my-init.el~
+** Skeletons: ~my_closet.el~
+I keep my skeletons in this file purely so I can say
+#+begin_quote
+I keep my skeltons in my closet
+#+end_quote
+
+* Work
+** Backlog
+** Completed
+*** DONE Fix font resizing on different monitors
 Ther is a bug in the font resizing function. Depending on which
 monitor is used first, the font heights will need to be adjusted.
 
@@ -9,24 +29,26 @@ Notes:
 New functions to compute resolution did not help
 The size of the mouse pointer is also huge.
 
-** TODO Move remaining skeletons into closet
+*** DONE Move remaining skeletons into closet
 There are still some skeletons in my-init.el.  They should be move to
 my-closet.el to improve the organization of the files.
 
-** TODO Fix the Haskell development environment
+*** DONE Fix the Haskell development environment
 LSP is not working right: the flycheck messages never get updated and
 there are other problems.
 
-** TODO Fix the C++ development environment
-LSP is not working.
+*** DONE Fix the C++ development environment
+~LSP~ is not working. This is only pseudo fixed.  The problem is having
+the `compile-commands.json` file in a location that can be found.
+Also, the lag with ~LSP~ is annoying and so gennerally, it itdisabled (~LSP~ is
+disabled, not the lag, though that would be nice).
 
-** TODO Adjust company mode delay
+*** DONE Adjust company mode delay
 Company mode is causing problems with typing because the delay is to short.
 
-* Completed
-** DONE Store on github<2023-08-05 Sat>
-** DONE Migray .emacs to my-init.el<2023-08-05 Sat>
-** DONE Migrate my-closet to here <2023-07-29 Sat>
+*** DONE Store on github<2023-08-05 Sat>
+*** DONE Migray .emacs to my-init.el<2023-08-05 Sat>
+*** DONE Migrate my-closet to here <2023-07-29 Sat>
 
 * Notes
 ** my-closet
