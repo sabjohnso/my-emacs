@@ -31,14 +31,17 @@
 ;; beyond the  type, should be documented in the  arguments
 ;; description and  verified with assertions.
 
+(use-package gptel :ensure t :pin melpa)
+
 (require 'gptel)
 (require 'cl-lib)
-
-
 
 (defgroup my/gptel nil
   "Customization for my/gptel tool helpers."
   :group 'applications)
+
+(defconst my/gptel-unsandboxed
+  (if (getenv "EMACS_TAG") nil t))
 
 
 (defvar my/gptel-all-tools nil
@@ -238,15 +241,6 @@ return a string (what gptel will send back to the model)."
            (my/gptel-register-tool  ,object-name))))))
 
 
-(my/gptel-defun calc
-  ((:name "expr" :type "string"
-    :description "The arithmetic expression that is to be evaluated" ))
-  "Evaluate a basic arithmetic expression and return the result as a string."
-  (:category "utility"
-   :confirm nil)
-  (condition-case err
-      (calc-eval (or expr ""))
-    (error (format "Error: %s" (error-message-string err)))))
 
 
 (my/gptel-defun open-url
@@ -323,7 +317,7 @@ The name must be the name of an active buffer."))
  must be the name of an active, writable buffer."))
   "Replace the entire contents of a buffer with CONTENT, returning a
 confirmation message."
-  (:category "editing" :confirm t)
+  (:category "editing" :confirm my/gptel-unsandboxed)
   (cl-assert (my/gptel--writable-live-buffer-name-p buffer-name))
   (let ((buffer  (get-buffer buffer-name)))
     (with-current-buffer buffer
@@ -341,7 +335,7 @@ confirmation message."
  must be the name of an active, writable buffer."))
   "Append `CONTENT' to the end of `BUFFER', returning a confirmation
  message."
-  (:category "editing" :confirm t)
+  (:category "editing" :confirm my/gptel-unsandboxed)
   (cl-assert (my/gptel--writable-live-buffer-name-p buffer-name))
   (let ((buffer (get-buffer buffer-name)))
     (with-current-buffer buffer
@@ -362,7 +356,7 @@ confirmation message."
     "Name of the buffer to modify"))
   "Prepend `CONTENT' to the beginning of `BUFFER-NAME', returning a
 confirmation message."
-  (:category "editing" :confirm t)
+  (:category "editing" :confirm my/gptel-unsandboxed)
   (cl-assert (my/gptel--writable-live-buffer-name-p buffer-name))
   (let ((buffer (get-buffer buffer-name)))
     (with-current-buffer buffer
@@ -414,7 +408,7 @@ buffer length+1 appends at the end of the buffer.")
   "Insert `CONTENT' at `POSITION' in `BUFFER-NAME' and report a
 confirmation message. `BUFFER-NAME' must be the name of a live
 buffer that is  writable"
-  (:category "editing" :confirm t)
+  (:category "editing" :confirm my/gptel-unsandboxed)
   (cl-assert (stringp content))
   (cl-assert (integerp position))
   (cl-assert (my/gptel--live-buffer-name-p buffer-name))
@@ -431,7 +425,7 @@ buffer that is  writable"
   "Determine whether the input path is to an existing file. Returns a
 string indicating whether the path is to an existing file."
   (:category "utility"
-   :confirm t)
+   :confirm my/gptel-unsandboxed)
   (cl-assert (stringp path))
   (let ((absolute-path (expand-file-name path)))
     (cond ((and (file-exists-p absolute-path) (not (file-directory-p absolute-path))) (format "True, the path %s is to an existing file" absolute-path))
@@ -442,7 +436,7 @@ string indicating whether the path is to an existing file."
   ((:name "path"    :type "string"  :description "Existing file path to open (absolute or relative to `default-directory')."))
   "Open an existing file into a buffer and return a confirmation message."
   (:category "filesystem"
-   :confirm t)
+   :confirm my/gptel-unsandboxed)
   (cl-assert (stringp path))
   (let ((absolute-path (expand-file-name path)))
     (cl-assert (file-exists-p absolute-path))
@@ -454,7 +448,7 @@ string indicating whether the path is to an existing file."
   ((:name "buffer-name" :type "string" :description "Name of the buffer to save. Defaults to the current buffer."))
   "Save BUFFER to its visited file, where BUFFER must be and existing
 buffer that is visiting a file"
-  (:category "filesystem" :confirm t)
+  (:category "filesystem" :confirm my/gptel-unsandboxed)
   (cl-assert (my/gptel--live-file-buffer-name-p buffer-name))
   (let ((buffer (get-buffer buffer-name)))
     (cl-assert (buffer-file-name buffer))
@@ -477,7 +471,7 @@ visiting a file, it must not have any unsaved changes."
   ((:name "command" :type "string"
     :description "A command to be executed in the bash shell"))
   "Execute `COMMAND' in a shell and return the text output as a string"
-  (:category "utility" :confirm t)
+  (:category "utility" :confirm my/gptel-unsandboxed)
   (shell-command-to-string command))
 
 (my/gptel-defun get-compile-command ()
@@ -487,7 +481,7 @@ visiting a file, it must not have any unsaved changes."
 
 (my/gptel-defun compile ()
   "Execute `compile-command' and return the output as a string"
-  (:category "utility" :confirm t)
+  (:category "utility" :confirm my/gptel-unsandboxed)
   (concat (format "Executed the command \"%s\" a which produced the following output:\n\n" compile-command)
           (shell-command-to-string compile-command)))
 
@@ -516,9 +510,114 @@ visiting a file, it must not have any unsaved changes."
 (my/gptel-defun enable-tool-by-name
   ((:name "tool-name" :description "The name of the to to enable" :type "string"))
   "Enable a gptel tool for use in the current buffer"
-  (:category "introspection" :confirm t)
+  (:category "introspection" :confirm my/gptel-unsandboxed)
   (setq-local gptel-tools (my/gptel--make-tool-list-unique-by-name (cons (my/gptel--get-tool-by-name tool-name) gptel-tools)))
   (format "The tool %s is now enabled" tool-name))
+
+
+(my/gptel-defun project-root ()
+  "Return the absolute path of the current project's root directory."
+  (:category "project" :confirm nil)
+  (require 'project)
+  (let* ((proj (project-current t))
+         (root (cond
+                ((fboundp 'project-root) (project-root proj))
+                ((fboundp 'project-roots) (car (project-roots proj)))
+                (t default-directory))))
+    (expand-file-name root)))
+
+(my/gptel-defun project-files ()
+  "List all files in the current project (one per line)."
+  (:category "project" :confirm nil)
+  (require 'project)
+  (let* ((proj (project-current t))
+         (files (if (fboundp 'project-files)
+                    (project-files proj)
+                  ;; Fallback: list tracked files via git, else recurse
+                  (let* ((root (project-root proj))
+                         (default-directory (expand-file-name root)))
+                    (if (executable-find "git")
+                        (split-string (shell-command-to-string "git ls-files") "\n" t)
+                      (directory-files-recursively default-directory ".*"))))))
+    (mapconcat #'identity files "\n")))
+
+(my/gptel-defun project-search
+  ((:name "pattern" :type "string"
+          :description "Literal or regex search pattern to find within the current project"))
+  "Search the current project for PATTERN using ripgrep if available, else grep -R."
+  (:category "project" :confirm nil)
+  (require 'project)
+  (let* ((proj (project-current t))
+         (root (project-root proj))
+         (default-directory (expand-file-name root))
+         (cmd (if (executable-find "rg")
+                  (format "rg --line-number --column --no-heading --color=never %s"
+                          (shell-quote-argument pattern))
+                (format "grep -RIn --exclude-dir=.git %s ."
+                        (shell-quote-argument pattern)))))
+    (concat (format "Search results in %s for %S:\n\n" default-directory pattern)
+            (shell-command-to-string cmd))))
+
+(my/gptel-defun file-create
+  ((:name "path"    :type "string"
+          :description "Path (absolute or relative to `default-directory') for the new file")
+   (:name "content" :type "string"
+          :description "Initial content to write into the new file"))
+  "Create a new file at PATH with CONTENT, visiting it in a buffer."
+  (:category "filesystem" :confirm my/gptel-unsandboxed)
+  (cl-assert (stringp path))
+  (cl-assert (stringp content))
+  (let* ((abs (expand-file-name path))
+         (parent (file-name-directory abs)))
+    (cl-assert (not (file-exists-p abs)))
+    (cl-assert (and parent (file-directory-p parent)))
+    (with-temp-file abs (insert content))
+    (let ((buf (find-file-noselect abs t)))
+      (format "Created %s (buffer %s)" abs (buffer-name buf)))))
+
+(my/gptel-defun file-rename
+  ((:name "old-path" :type "string"
+          :description "Existing file to rename (absolute or relative to `default-directory')")
+   (:name "new-path" :type "string"
+          :description "New file path (must not already exist)") )
+  "Rename/move OLD-PATH to NEW-PATH and update any visiting buffer."
+  (:category "filesystem" :confirm my/gptel-unsandboxed)
+  (let* ((old (expand-file-name old-path))
+         (new (expand-file-name new-path)))
+    (cl-assert (file-exists-p old))
+    (cl-assert (not (file-exists-p new)))
+    (let ((buf (find-buffer-visiting old)))
+      (if buf
+          (with-current-buffer buf
+            (set-visited-file-name new t t)
+            (save-buffer))
+        (rename-file old new)))
+    (format "Renamed %s -> %s" old new)))
+
+(my/gptel-defun vc-git-status ()
+  "Show the current git branch and porcelain status for the project."
+  (:category "vc" :confirm nil)
+  (require 'project)
+  (require 'subr-x)
+  (cl-assert (executable-find "git"))
+  (let* ((proj (project-current t))
+         (root (project-root proj))
+         (default-directory (expand-file-name root)))
+    (cl-assert (file-directory-p (expand-file-name ".git" default-directory)))
+    (let* ((branch (string-trim (shell-command-to-string "git rev-parse --abbrev-ref HEAD 2>/dev/null")))
+           (status (shell-command-to-string "git status --porcelain")))
+      (format "Branch: %s\n\n%s" branch status))))
+
+(my/gptel-defun calc
+  ((:name "expr" :type "string"
+    :description "The arithmetic expression that is to be evaluated"))
+  "Evaluate a basic arithmetic expression and return the result as a string."
+  (:category "utility"
+   :confirm nil)
+  (condition-case err
+      (calc-eval (or expr ""))
+    (error (format "Error: %s" (error-message-string err)))))
+
 
 (my/gptel-register-global-tool my/gptel-enable-tool-by-name-tool)
 
