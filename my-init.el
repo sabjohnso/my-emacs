@@ -732,14 +732,20 @@ commands to use in that buffer."
 (use-package merlin-eldoc :ensure t :pin melpa)
 (use-package merlin-iedit :ensure t :pin melpa)
 ;; (use-package ocaml-format :ensure t :pin melpa)
+
 (use-package opam-switch-mode :ensure t :pin melpa)
 (use-package tuareg :ensure t :pin melpa)
 
 (require 'merlin)
 
-(add-hook 'tuareg-mode-hook (lambda () (merlin-mode)))
+
+(add-hook 'tuareg-mode-hook
+          (lambda ()
+            (merlin-mode)
+            (paredit-mode)
+            (display-line-numbers-mode)))o
 (add-hook 'caml-mode-hook (lambda () (merlin-mode)))
-(add-hook 'tuareg-mode-hook (lambda () (paredit-mode)))
+
 (add-hook 'dune-mode-hook (lambda () (paredit-mode)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
