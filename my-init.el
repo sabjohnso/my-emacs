@@ -12,7 +12,8 @@
 	("nongnu" . "https://elpa.nongnu.org/nongnu/")
 	("melpa" . "https://melpa.org/packages/")))
 
-(use-package el-get :ensure t :pin melpa)
+;; Error (use-package): Failed to install el-get: Wrong type argument: stringp, #<symbol clojure-mode at 10097>
+;; (use-package el-get :ensure t :pin melpa)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -24,6 +25,7 @@
 (require 'org)
 (use-package org-tempo :demand t)
 
+(use-package vterm :ensure t)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -48,6 +50,7 @@
 (setq visible-bell t)
 (global-set-key (kbd "<f5>") #'compile)
 
+(abbrev-mode)
 (setq save-abbrevs 'silently)
 
 (defun my-get-monitor-pixels (&optional frame)
@@ -215,7 +218,8 @@ saving the buffer.")
 ;;; ... General Development
 ;;;
 (use-package dockerfile-mode :ensure t :pin melpa)
-(use-package direnv :ensure t :pin melpa)
+;; (use-package): Failed to install direnv: Wrong type argument: stringp, #<symbol clojure-mode at 10097>
+;; (use-package direnv :ensure t :pin melpa)
 (use-package rtags :ensure t)
 (use-package company-rtags :ensure t)
 (use-package highlight-thing :ensure t)
@@ -334,10 +338,30 @@ saving the buffer.")
 (use-package geiser-gambit :ensure t :pin melpa)
 (use-package geiser-gauche :ensure t :pin melpa)
 (use-package geiser-guile :ensure t :pin melpa)
-(use-package geiser-kawa :ensure t :pin melpa)
+;; (use-package geiser-kawa :ensure t :pin melpa)
 
 ;; (use-package dr-racket-like-unicode :ensure t :pin melpa
 ;;   :hook (scheme-mode . dr-racket-like-unicode))
+
+(defun paredit-space-for-delimiter-predicates-scheme (endp delimiter)
+  "Do not automatically insert a space under certain conditions"
+  (or endp
+      (cond ((eq (char-syntax delimiter) ?\()
+             (not (looking-back "#\\|#hash")))
+            ((eq (char-syntax delimiter) ?\")
+             (not (looking-back "#rx\\|#px")))
+            (t t))))
+
+(defun scheme-mode-paredit-hook ()
+  (enable-paredit-mode)
+  (add-to-list (make-local-variable 'paredit-space-for-delimiter-predicates)
+               'paredit-space-for-delimiter-predicates-scheme))
+
+(add-hook 'geiser-repl-mode-hook
+          'scheme-mode-paredit-hook)
+
+(add-hook 'scheme-mode-hook
+          'scheme-mode-paredit-hook)
 
 (add-hook 'geiser-repl-mode-hook
 	  (lambda ()
@@ -439,10 +463,10 @@ saving the buffer.")
 (use-package cmake-mode :ensure t :pin melpa)
 (use-package cmake-font-lock :ensure t :pin melpa)
 
-(require 'el-get-bundle)
-(el-get-bundle cmake-cache-mode
-  :url "https://github.com/sabjohnso/cmake-cache-mode.git"
-  :features cmake-cache-mode)
+;; (require 'el-get-bundle)
+;; (el-get-bundle cmake-cache-mode
+;;   :url "https://github.com/sabjohnso/cmake-cache-mode.git"
+;;   :features cmake-cache-mode)
 
 (defface compilation-pass
   '((t :inherit compilation-info))
@@ -735,17 +759,17 @@ commands to use in that buffer."
 
 (use-package opam-switch-mode :ensure t :pin melpa)
 (use-package tuareg :ensure t :pin melpa)
-
+(add-to-list 'auto-mode-alist '("\\.atd\\'" . tuareg-mode))
 (require 'merlin)
+
 
 
 (add-hook 'tuareg-mode-hook
           (lambda ()
             (merlin-mode)
             (paredit-mode)
-            (display-line-numbers-mode)))o
+            (display-line-numbers-mode)))
 (add-hook 'caml-mode-hook (lambda () (merlin-mode)))
-
 (add-hook 'dune-mode-hook (lambda () (paredit-mode)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -792,55 +816,93 @@ commands to use in that buffer."
 (use-package markdown-preview-eww :ensure t :pin melpa)
 (use-package markdown-preview-mode :ensure t :pin melpa)
 
+(require 'markdown-mode)
+
+(defvar my-markdown-preview-theme 'github-dark
+  "Current markdown preview theme name.")
+
+(defvar my-markdown-preview-themes
+  '(github-light    github-dark
+    water-light     water-dark     water-auto
+    pico-classless  pico-fluid
+    simple
+    new
+    sakura-light    sakura-dark
+    marx
+    mvp
+    tufte)
+  "Ordered list of available markdown preview themes for cycling.")
+
+(defvar my-markdown-preview-stylesheets-alist
+  '((github-light   . "https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-light.min.css")
+    (github-dark    . "https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/5.8.1/github-markdown-dark.min.css")
+    (water-light    . "https://cdn.jsdelivr.net/npm/water.css@2/out/light.min.css")
+    (water-dark     . "https://cdn.jsdelivr.net/npm/water.css@2/out/dark.min.css")
+    (water-auto     . "https://cdn.jsdelivr.net/npm/water.css@2/out/water.min.css")
+    (pico-classless . "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.classless.min.css")
+    (pico-fluid     . "https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.fluid.classless.min.css")
+    (simple         . "https://cdn.simplecss.org/simple.min.css")
+    (new            . "https://cdn.jsdelivr.net/npm/@exampledev/new.css@1/new.min.css")
+    (sakura-light   . "https://cdn.jsdelivr.net/npm/sakura.css@1/css/sakura.css")
+    (sakura-dark    . "https://cdn.jsdelivr.net/npm/sakura.css@1/css/sakura-dark.css")
+    (marx           . "https://cdn.jsdelivr.net/npm/marx-css@4/css/marx.min.css")
+    (mvp            . "https://unpkg.com/mvp.css")
+    (tufte          . "https://cdn.jsdelivr.net/npm/tufte-css@1/tufte.min.css"))
+  "Alist mapping theme names to CDN stylesheet URLs.")
+
+(defun my-markdown-preview-set-theme (theme)
+  "Set the markdown preview stylesheet to THEME."
+  (setq my-markdown-preview-theme theme)
+  (setq markdown-preview-stylesheets
+        (list (alist-get theme my-markdown-preview-stylesheets-alist)))
+  (setq markdown-preview-style ""))
+
+(defun my-markdown-preview-select-theme ()
+  "Select a markdown preview theme from the available options."
+  (interactive)
+  (let* ((names (mapcar #'symbol-name my-markdown-preview-themes))
+         (choice (completing-read
+                  (format "Markdown preview theme (%s): " my-markdown-preview-theme)
+                  names nil t)))
+    (my-markdown-preview-set-theme (intern choice))
+    (message "Markdown preview theme: %s" choice)))
+
+(defun my-markdown-preview-next-theme ()
+  "Cycle to the next markdown preview theme."
+  (interactive)
+  (let* ((tail (cdr (memq my-markdown-preview-theme my-markdown-preview-themes)))
+         (next (if tail (car tail) (car my-markdown-preview-themes))))
+    (my-markdown-preview-set-theme next)
+    (message "Markdown preview theme: %s" next)))
+
+(my-markdown-preview-set-theme 'github-dark)
+
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Solid Modeling
 ;;
 
-(use-package scad-mode :ensure t :pin melpa)
-(add-hook 'scad-mode-hook 'display-line-numbers-mode)
+;; (use-package scad-mode :ensure t :pin melpa)
+;; (add-hook 'scad-mode-hook 'display-line-numbers-mode)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Environment Modules
 ;;
 
-(load "/usr/local/Modules/init/lisp")
-(add-to-list 'magic-mode-alist '("#%Module.*" . tcl-mode))
+
+(let ((environment-modules-source "/usr/local/Modules/init/lisp"))
+  (when(file-exists-p environment-modules-source)
+    (load "/usr/local/Modules/init/lisp")
+    (add-to-list 'magic-mode-alist '("#%Module.*" . tcl-mode))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; ... Bullshit
+;; ... LLM Interaction
 ;;
-
-(use-package chatgpt-shell :ensure t :pin melpa)
-(with-eval-after-load 'chatgpt-shell
-  (setq chatgpt-shell-openai-key "xxxx"))
-
-
-(setq my-using-elpa-gptel nil)
-
-(add-to-list 'load-path (expand-file-name "~/Sandbox/mcp.el"))
-(add-to-list 'load-path (expand-file-name "~/Sandbox/gptel"))
-
-;; (use-package mcp
-;;   :ensure t
-;;   :after gptel
-;;   :custom (mcp-hub-servers
-;;            `(("filesystem" . (:command "npx" :args ("-y" "@modelcontextprotocol/server-filesystem" "/home/lizqwer/MyProject/")))
-;;              ("fetch" . (:command "uvx" :args ("mcp-server-fetch")))
-;;              ("qdrant" . (:url "http://localhost:8000/sse"))
-;;              ("graphlit" . (
-;;                             :command "npx"
-;;                             :args ("-y" "graphlit-mcp-server")
-;;                             :env (
-;;                                   :GRAPHLIT_ORGANIZATION_ID "your-organization-id"
-;;                                   :GRAPHLIT_ENVIRONMENT_ID "your-environment-id"
-;;                                   :GRAPHLIT_JWT_SECRET "your-jwt-secret")))))
-;;   :config (require 'mcp-hub)
-;;   :hook (after-init . mcp-hub-start-all-server))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
