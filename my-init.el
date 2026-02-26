@@ -41,13 +41,8 @@
 ;; down with tabs
 (setq-default indent-tabs-mode nil)
 (custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
  '(default ((t (:family "DejaVu Sans Mono" :foundry "PfEd" :slant normal :weight regular :height 110 :width normal))))
- '(dir-treeview-directory-face ((t (:inherit dir-treeview-default-filename-face :foreground "cyan"))))
- '(tuareg-font-lock-governing-face ((t (:weight bold :foreground "dark cyan" :inherit bold)))))
+ '(dir-treeview-directory-face ((t (:inherit dir-treeview-default-filename-face :foreground "cyan")))))
 
 
 (setq visible-bell t)
@@ -741,7 +736,8 @@ commands to use in that buffer."
 ;; (use-package ocaml-format :ensure t :pin melpa)
 
 (use-package opam-switch-mode :ensure t :pin melpa :commands opam-switch-mode)
-(use-package tuareg :ensure t :pin melpa :mode ("\\.ml\\'" "\\.mli\\'"))
+(use-package tuareg :ensure t :pin melpa)
+
 (add-to-list 'auto-mode-alist '("\\.atd\\'" . tuareg-mode))
 
 
@@ -909,6 +905,25 @@ commands to use in that buffer."
   "Run codex in a vterm buffer named *codex-<directory>*."
   (interactive)
   (my--run-llm-in-vterm "codex"))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; ... Themes
+;;
+
+(add-to-list 'custom-theme-load-path "~/Sandbox/my-emacs/")
+
+(defvar my-current-theme 'my-light
+  "The currently active custom theme (my-light or my-dark).")
+
+(defun my-toggle-theme ()
+  "Toggle between my-light and my-dark themes."
+  (interactive)
+  (let ((next (if (eq my-current-theme 'my-light) 'my-dark 'my-light)))
+    (disable-theme my-current-theme)
+    (load-theme next t)
+    (setq my-current-theme next)
+    (message "Theme: %s" next)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
