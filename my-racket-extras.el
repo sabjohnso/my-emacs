@@ -1,5 +1,13 @@
 ;;; my-racket-extras.el --- Extra Support for Racket -*- lexical-binding: t -*-
 
+(with-eval-after-load 'compile
+  (add-to-list
+   'compilation-error-regexp-alist-alist
+   '(rackunit-feature
+     "\\(feature-file\\):\\s +\\([^:]+\\):\\([0-9]+\\):\\([0-9]+\\)"
+     2 3 4 2 2 (1 font-lock-function-name-face)))
+  (add-to-list 'compilation-error-regexp-alist 'rackunit-feature))
+
 (use-package pcre2el :ensure t :pin melpa)
 (require 'pcre2el)
 
@@ -24,6 +32,11 @@
     define-generics
     define/generic
     define/rule
+    define-provide-syntax
+    define-require-syntax
+    define-provide-syntax
+    define-syntaxes
+    define-values-for-syntax
     define-syntax-rule
     define-syntax-class
     define-splicing-syntax-class
@@ -39,6 +52,7 @@
     define-token
     define-lexical-rule
     define-type
+    :
     define-predicate
     define-ffi-definer
     define-wsfeed
@@ -64,6 +78,7 @@
     define-interface*
     define-simple-macro
     define-syntax-parameter
+    define-gcc-jit
     union
     protocol
     def
@@ -71,7 +86,8 @@
     declare
     type
     signature
-    record))
+    record
+    Instance))
 
 
 (defun my-racket-extras-module-introducers ()
@@ -132,7 +148,8 @@
     with-input-from-file
     call-with-output-file
     call-with-output-file*
-    with-output-to-file))
+    with-output-to-file
+    call-with))
 
 (defun my-racket-require-spec-introducers ()
   "Return a list of Racket require spec introducers"
@@ -164,6 +181,7 @@
     except-out
     prefix-out
     struct-out
+    union-out
     combind-out
     protect-out
     for-meta
@@ -197,7 +215,8 @@
     init-field
     place-channel-put
     place-channel-get
-    place-channel-put/get))
+    place-channel-put/get
+    Class))
 
 
 
@@ -371,10 +390,13 @@
   (put 'unless/m 'scheme-indent-function 1)
   (put 'let/monad 'scheme-indent-function 1)
   (put 'let/applicative 'scheme-indent-function 1)
-  (put 'let/functor 'scheme-indent-function 1) 
+  (put 'let/functor 'scheme-indent-function 1)
   (put 'let/m 'scheme-indent-function 1)
   (put 'let/a 'scheme-indent-function 1)
   (put 'let/f 'scheme-indent-function 1)
+  (put 'let/functor 'scheme-indent-function 1)
+  (put 'let/applicative 'scheme-indent-function 1)
+  (put 'let/monad 'scheme-indent-function 1)
   (put 'lambda/arrow 'scheme-indent-function 1)
   (put 'λ/arrow 'scheme-indent-function 1)
   (put 'let/arrow 'scheme-indent-function 1)
@@ -403,6 +425,7 @@
   (put 'with-input-from-file 'scheme-indent-function 1)
   (put 'call-with-output-file 'scheme-indent-function 1)
   (put 'call-with-output-file* 'scheme-indent-function 1)
+  (put 'call-with 'scheme-indent-function 1)
   (put 'only-in 'scheme-indent-function 1)
   (put 'printf 'scheme-indent-function 1)
   (put 'with-output-to-file 'scheme-indent-function 1)

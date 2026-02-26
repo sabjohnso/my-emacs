@@ -22,10 +22,16 @@
 ;;
 
 ;; (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
-(require 'org)
-(use-package org-tempo :demand t)
+(use-package org
+  :defer t
+  :hook (org-mode . (lambda ()
+                      (read-only-mode)
+                      (auto-revert-mode)
+                      (auto-fill-mode))))
 
-(use-package vterm :ensure t)
+(use-package org-tempo :after org)
+
+(use-package vterm :ensure t :commands vterm)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -34,7 +40,6 @@
 
 ;; down with tabs
 (setq-default indent-tabs-mode nil)
-(add-hook 'org-mode-hook 'auto-fill-mode)
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -45,8 +50,6 @@
  '(tuareg-font-lock-governing-face ((t (:weight bold :foreground "dark cyan" :inherit bold)))))
 
 
-(tool-bar-mode 0)
-(scroll-bar-mode 0)
 (setq visible-bell t)
 (global-set-key (kbd "<f5>") #'compile)
 
@@ -173,8 +176,7 @@ saving the buffer.")
 (add-hook 'before-save-hook
    (lambda ()
      (when (member major-mode my-delete-trailing-whitespace-mode-list)
-       (delete-trailing-whitespace)
-       (font-lock-fontify-buffer))))
+       (delete-trailing-whitespace))))
 
 
 ;; prevent scaling with the mouse wheel and add
@@ -196,13 +198,14 @@ saving the buffer.")
 (global-set-key (kbd "C-<down>") 'my-decrease-scale)
 
 ;; hide emacs backup files
-(require 'dired-x)
-(setq dired-omit-files ".~$")
-(setq dired-omit-extensions nil)
+(with-eval-after-load 'dired
+  (require 'dired-x)
+  (setq dired-omit-files ".~$")
+  (setq dired-omit-extensions nil))
 (add-hook 'dired-mode-hook 'dired-omit-mode)
 
-(use-package pcre2el :ensure t :pin melpa)
-(use-package sr-speedbar :ensure t :pin melpa)
+(use-package pcre2el :ensure t :pin melpa :defer t)
+(use-package sr-speedbar :ensure t :pin melpa :commands sr-speedbar-toggle)
 
 
 (add-to-list 'auto-mode-alist '("\\.cheat\\'" . shell-script-mode))
@@ -211,35 +214,35 @@ saving the buffer.")
 ;;;
 ;;; ... Graphviz
 ;;;
-(use-package graphviz-dot-mode :ensure t :pin melpa)
+(use-package graphviz-dot-mode :ensure t :pin melpa :mode "\\.dot\\'")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
 ;;; ... General Development
 ;;;
-(use-package dockerfile-mode :ensure t :pin melpa)
+(use-package dockerfile-mode :ensure t :pin melpa :mode "Dockerfile")
 ;; (use-package): Failed to install direnv: Wrong type argument: stringp, #<symbol clojure-mode at 10097>
 ;; (use-package direnv :ensure t :pin melpa)
-(use-package rtags :ensure t)
-(use-package company-rtags :ensure t)
-(use-package highlight-thing :ensure t)
+(use-package rtags :ensure t :defer t)
+(use-package company-rtags :ensure t :after (company rtags))
+(use-package highlight-thing :ensure t :defer t)
 ;; (use-package highlight-unique-symbol :ensure t)
 
-(use-package paredit-everywhere :ensure t :pin melpa)
-(use-package paredit-menu :ensure t :pin melpa)
-(use-package flycheck-projectile :ensure t :pin melpa)
-(use-package lsp-mode :ensure t :pin melpa)
-(use-package lsp-ui :ensure t :pin melpa)
-(use-package magit :ensure t :pin melpa)
-(use-package git-modes :ensure t :pin melpa)
+(use-package paredit-everywhere :ensure t :pin melpa :defer t)
+(use-package paredit-menu :ensure t :pin melpa :defer t)
+(use-package flycheck-projectile :ensure t :pin melpa :after (flycheck projectile))
+(use-package lsp-mode :ensure t :pin melpa :commands lsp)
+(use-package lsp-ui :ensure t :pin melpa :after lsp-mode)
+(use-package magit :ensure t :pin melpa :commands (magit-status magit-dispatch))
+(use-package git-modes :ensure t :pin melpa :defer t)
 (use-package projectile
   :ensure t
   :pin melpa
   :bind-keymap
   ("C-c p" . projectile-command-map))
-(use-package projectile-speedbar :ensure t :pin melpa)
-(use-package plantuml-mode :ensure t :pin melpa)
-(use-package mermaid-mode :ensure t :pin melpa)
+(use-package projectile-speedbar :ensure t :pin melpa :after (projectile sr-speedbar))
+(use-package plantuml-mode :ensure t :pin melpa :mode "\\.plantuml\\'")
+(use-package mermaid-mode :ensure t :pin melpa :mode "\\.mmd\\'")
 
 (defun my-add-fixme-highlights ()
   (interactive)
@@ -253,10 +256,10 @@ saving the buffer.")
 ;; ... Haskell
 ;;
 
-(use-package haskell-mode :ensure t :pin melpa)
+(use-package haskell-mode :ensure t :pin melpa :mode "\\.hs\\'")
 ;; (use-package dante :ensure t :pin melpa) Development mode for Haskell
-(use-package  ac-haskell-process :ensure t :pin melpa) ;; Haskell auto-complete source which uses the current haskell process
-(use-package flycheck-haskell :ensure t :pin melpa) ;; not sure what this uses but it says automatic
+(use-package ac-haskell-process :ensure t :pin melpa :after haskell-mode) ;; Haskell auto-complete source which uses the current haskell process
+(use-package flycheck-haskell :ensure t :pin melpa :after (flycheck haskell-mode)) ;; not sure what this uses but it says automatic
 ;; (use-package flycheck-liquidhs :ensure t :pin melpa) ;; it uses liquidhaskell (what is that)
 ;; (use-package flymake-haskell-multi :ensure t :pin melpa) ;; it uses hlint and ghc
 ;; (use-package flymake-hlint :ensure t :pin melpa) ;; it uses hlint
@@ -267,11 +270,11 @@ saving the buffer.")
 ;; (use-package haskell-tng-mode :ensure t :pin nongnu) ;; Major mode for editing Haskell
 ;; (use-package hcel :ensure t :pin gnu) ;; Haskell codebase explorer
 ;; (use-package hi2 :ensure t :pin melpa) ;; indentation module for Haskell Mode
-(use-package hindent :ensure t :pin melpa) ;; Indent haskell code using the "hindent" program
+(use-package hindent :ensure t :pin melpa :after haskell-mode) ;; Indent haskell code using the "hindent" program
 ;; (use-package hyai :ensure t :pin melpa) ;; Haskell Yet Another Indentation
-(use-package lsp-haskell :ensure t :pin melpa) ;; Haskell support for lsp-mode
+(use-package lsp-haskell :ensure t :pin melpa :after (lsp-mode haskell-mode)) ;; Haskell support for lsp-mode
 ;; (use-package nix-haskell-mode :ensure t :pin melpa) ;; haskell-mode integrations for Nix
-(use-package ormolu :ensure t :pin melpa) ;;Format Haskell source code using the "ormolu" program
+(use-package ormolu :ensure t :pin melpa :after haskell-mode) ;;Format Haskell source code using the "ormolu" program
 ;; (use-package retrie :ensure t :pin melpa) ;; Refactoring Haskell code with retrie
 ;; (use-package shm :ensure t :pin melpa)  ;; Structured Haskell Mode
 
@@ -280,7 +283,7 @@ saving the buffer.")
 ;; ... Julia
 ;;
 
-(use-package julia-repl :ensure t :pin melpa)
+(use-package julia-repl :ensure t :pin melpa :commands julia-repl)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -307,17 +310,17 @@ saving the buffer.")
 ;;             (local-set-key (kbd "<f12>") 'slime-repl-clear-buffer)))
 
 ;; (use-package slime-company :ensure t :pin melpa)
-(use-package company :ensure t :pin melpa)
-(use-package racket-mode :ensure t :pin melpa)
-(use-package scribble-mode :ensure t :pin melpa)
-(use-package hy-mode :ensure t :pin melpa)
+(use-package company :ensure t :pin melpa :hook (prog-mode . company-mode))
+(use-package racket-mode :ensure t :pin melpa :mode "\\.rkt\\'")
+(use-package scribble-mode :ensure t :pin melpa :mode "\\.scrbl\\'")
+(use-package hy-mode :ensure t :pin melpa :mode "\\.hy\\'")
 
 (add-to-list 'auto-mode-alist '("\\.sbclrc\\'" . lisp-mode))
 (add-to-list 'auto-mode-alist '("\\.eclrc\\'" . lisp-mode))
 (add-to-list 'auto-mode-alist '("\\.ecl\\'" . lisp-mode))
 
-(use-package clojure-mode :ensure t :pin melpa)
-(use-package cider :ensure t :pin melpa)
+(use-package clojure-mode :ensure t :pin melpa :mode ("\\.clj\\'" "\\.cljs\\'"))
+(use-package cider :ensure t :pin melpa :after clojure-mode)
 
 (with-eval-after-load
     'slime
@@ -331,13 +334,13 @@ saving the buffer.")
           (ecl ("/home/sbj/.roswell/impls/x86-64/linux/ecl/24.5.10/bin/ecl")))))
 
 ;; scheme
-(use-package geiser-racket :ensure t :pin melpa)
-(use-package geiser-chibi :ensure t :pin melpa)
-(use-package geiser-chez :ensure t :pin melpa)
-(use-package geiser-chicken :ensure t :pin melpa)
-(use-package geiser-gambit :ensure t :pin melpa)
-(use-package geiser-gauche :ensure t :pin melpa)
-(use-package geiser-guile :ensure t :pin melpa)
+(use-package geiser-racket :ensure t :pin melpa :after geiser)
+(use-package geiser-chibi :ensure t :pin melpa :after geiser)
+(use-package geiser-chez :ensure t :pin melpa :after geiser)
+(use-package geiser-chicken :ensure t :pin melpa :after geiser)
+(use-package geiser-gambit :ensure t :pin melpa :after geiser)
+(use-package geiser-gauche :ensure t :pin melpa :after geiser)
+(use-package geiser-guile :ensure t :pin melpa :after geiser)
 ;; (use-package geiser-kawa :ensure t :pin melpa)
 
 ;; (use-package dr-racket-like-unicode :ensure t :pin melpa
@@ -370,22 +373,13 @@ saving the buffer.")
 
 
 ;; paredit
-(use-package paredit :ensure t :pin melpa)
-(require 'paredit)
-(define-key paredit-mode-map (kbd "RET") nil)
-
-
-;; Stop SLIME's REPL from grabbing DEL,
-;; which is annoying when backspacing over a '('
-;; (defun my-override-slime-repl-bindings-with-paredit ()
-;;   (interactive)
-;;   (define-key slime-repl-mode-map
-;;               (read-kbd-macro paredit-backward-delete-key) nil))
-;; (add-hook 'slime-repl-mode-hook 'my-override-slime-repl-bindings-with-paredit)
-
-
-(define-key paredit-mode-map (kbd "RET") nil)
-(define-key paredit-mode-map (kbd "C-j") 'paredit-newline)
+(use-package paredit
+  :ensure t
+  :pin melpa
+  :commands enable-paredit-mode
+  :config
+  (define-key paredit-mode-map (kbd "RET") nil)
+  (define-key paredit-mode-map (kbd "C-j") 'paredit-newline))
 
 (add-hook 'emacs-lisp-mode-hook 'paredit-mode)
 (add-hook 'inferior-emacs-lisp-mode-hook 'paredit-mode)
@@ -414,7 +408,7 @@ saving the buffer.")
 ;; ... Erlang
 ;;
 
-(use-package edts :ensure t :pin melpa)
+(use-package edts :ensure t :pin melpa :after erlang)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -428,40 +422,41 @@ saving the buffer.")
 ;; (add-hook 'c++-mode-hook 'doxy-graph-mode)
 ;; (add-hook 'python-mode-hook 'doxy-graph-mode)
 
-(use-package modern-cpp-font-lock :ensure t)
+(use-package modern-cpp-font-lock :ensure t :hook (c++-mode . modern-c++-font-lock-mode))
 ;; (use-package company-c-headers :ensure t)
 ;; (use-package cpp-auto-include :ensure t)
 ;; (use-package cpputils-cmake :ensure t) ; this probably doesn't work
 ;; (use-package demangle-mode :ensure t) ;
 ;; (use-package disaster :ensure t) ; this shoud dissasemble code at point
 ;; (use-package function-args :ensure t) ; C++ completion for GNU Emacs
-(use-package irony :ensure t) ; C/C++ minor mode powered by libclang
+(use-package irony :ensure t :hook (c++-mode . irony-mode)) ; C/C++ minor mode powered by libclang
 ;; (use-package irony-eldoc :ensure t) ; irony-mode support for eldoc-mode
 (use-package doxy-graph-mode :ensure t
     :hook ((c++-mode . doxy-graph-mode)
 	   (c-mode . doxy-graph-mode)
 	   (python-mode . doxy-graph-mode)))
 
-(use-package highlight-doxygen :ensure t)
-(require 'cc-styles)
-(add-to-list
- 'c-style-alist
- '("my"
-   (c-basic-offset . 2)
-   (c-comment-only-line-offset . 0)
-   (c-offsets-alist
-    (statement-block-intro . +)
-    (knr-argdecl-intro . +)
-    (substatement-open . +)
-    (substatement-label . 0)
-    (label . 0)
-    (statement-cont . +)
-    (inline-open . 0)
-    (inexpr-class . 0))))
-(use-package compiler-explorer :ensure t :pin melpa)
-(use-package pickle :ensure t :pin melpa)
-(use-package cmake-mode :ensure t :pin melpa)
-(use-package cmake-font-lock :ensure t :pin melpa)
+(use-package highlight-doxygen :ensure t :hook (c++-mode . highlight-doxygen-mode))
+(with-eval-after-load 'cc-mode
+  (require 'cc-styles)
+  (add-to-list
+   'c-style-alist
+   '("my"
+     (c-basic-offset . 2)
+     (c-comment-only-line-offset . 0)
+     (c-offsets-alist
+      (statement-block-intro . +)
+      (knr-argdecl-intro . +)
+      (substatement-open . +)
+      (substatement-label . 0)
+      (label . 0)
+      (statement-cont . +)
+      (inline-open . 0)
+      (inexpr-class . 0)))))
+(use-package compiler-explorer :ensure t :pin melpa :commands compiler-explorer)
+(use-package pickle :ensure t :pin melpa :defer t)
+(use-package cmake-mode :ensure t :pin melpa :mode ("CMakeLists\\.txt\\'" "\\.cmake\\'"))
+(use-package cmake-font-lock :ensure t :pin melpa :after cmake-mode)
 
 ;; (require 'el-get-bundle)
 ;; (el-get-bundle cmake-cache-mode
@@ -494,7 +489,7 @@ saving the buffer.")
 ;; (use-package rtags :ensure t :pin melpa)
 ;; (use-package flycheck-rtags :ensure t :pin melpa)
 ;; (use-package company-rtags :ensure t :pin melpa)
-(use-package clang-format :ensure t :pin melpa)
+(use-package clang-format :ensure t :pin melpa :commands clang-format-buffer)
 (add-to-list 'auto-mode-alist '("\\.clang-format" . yaml-mode))
 
 (with-eval-after-load 'cmake-font-lock
@@ -560,32 +555,33 @@ saving the buffer.")
 ;; Remember that 0 is for the whole pattern and the first group starts at 1.
 ;;
 ;; Add a pattern for assertion failures that matches for g++ and clang++
-(add-to-list
- 'compilation-error-regexp-alist-alist
- '(clang-address-sanitizer
-   "#[0-9]+ 0x\\(?:[0-9a-f]+\\) in .*? \\(/.*?\\):\\([0-9]+\\):\\([0-9]+\\)$"
-   1 2 3 1))
+(with-eval-after-load 'compile
+  (add-to-list
+   'compilation-error-regexp-alist-alist
+   '(clang-address-sanitizer
+     "#[0-9]+ 0x\\(?:[0-9a-f]+\\) in .*? \\(/.*?\\):\\([0-9]+\\):\\([0-9]+\\)$"
+     1 2 3 1))
 
-(add-to-list 'compilation-error-regexp-alist-alist
- '(gnu-assertion
-   "^\\b[^:]+:\\s +\\([^:]*\\):\\([0-9]+\\):\\s +\\(.*+?\\):\\([0-9]*\\) Assertion `\\(.*?\\)' failed."
-   1 2 3 2 1))
+  (add-to-list 'compilation-error-regexp-alist-alist
+   '(gnu-assertion
+     "^\\b[^:]+:\\s +\\([^:]*\\):\\([0-9]+\\):\\s +\\(.*+?\\):\\([0-9]*\\) Assertion `\\(.*?\\)' failed."
+     1 2 3 2 1))
 
-(add-to-list
- 'compilation-error-regexp-alist-alist
- '(rackunit
-   "location:\s +\\([^:]+\\):\\([0-9]+\\):\\([0-9]+\\)"
-   1 2 3 2 1))
+  (add-to-list
+   'compilation-error-regexp-alist-alist
+   '(rackunit
+     "location:\s +\\([^:]+\\):\\([0-9]+\\):\\([0-9]+\\)"
+     1 2 3 2 1))
 
-(add-to-list 'compilation-error-regexp-alist-alist
-             '(path-and-line-number
-               "[\n][\t ]+\\([^: ]+\\):\\([0-9]+\\):"
-   1 2 nil 0 1))
+  (add-to-list 'compilation-error-regexp-alist-alist
+               '(path-and-line-number
+                 "[\n][\t ]+\\([^: ]+\\):\\([0-9]+\\):"
+     1 2 nil 0 1))
 
-(add-to-list 'compilation-error-regexp-alist 'gnu-assertion )
-(add-to-list 'compilation-error-regexp-alist 'path-and-line-number)
-(add-to-list 'compilation-error-regexp-alist 'rackunit)
-(add-to-list 'compilation-error-regexp-alist 'clang-address-sanitizer)
+  (add-to-list 'compilation-error-regexp-alist 'gnu-assertion)
+  (add-to-list 'compilation-error-regexp-alist 'path-and-line-number)
+  (add-to-list 'compilation-error-regexp-alist 'rackunit)
+  (add-to-list 'compilation-error-regexp-alist 'clang-address-sanitizer))
 
 ;; (defun my-add-c++-macro-highlights ()
 ;;   (interactive)
@@ -646,8 +642,6 @@ saving the buffer.")
     SKIP
     BENCHMARK
     BENCHMARK_ADVANCED))
-(use-package pcre2el :ensure t :pin melpa)
-(require 'pcre2el)
 
 (defun my-c++-catch2-keywords-pattern ()
   "Return a pattern recognizing chatch2 macros"
@@ -664,7 +658,6 @@ saving the buffer.")
 
 
 (defvar my-clang-format-on-save-enabled t)
-(require 'clang-format)
 (defun my-clang-format-on-save ()
   (when (and my-clang-format-on-save-enabled (eq major-mode 'c++-mode))
     (clang-format-buffer)))
@@ -674,15 +667,6 @@ saving the buffer.")
 (add-hook 'c++-mode-hook 'auto-complete-mode)
 
 
-
-(defun my-c++-mode-hooks ()
-  "Hook the following functions when c++-mode is started"
-  (c-set-style "my")
-  (display-line-numbers-mode)
-  (my-add-c++-fixme-highlights)
-  (my-add-c++-macro-highlights)
-  (my-add-c++-catch2-keywords)
-  (local-set-key (kbd "<f12>") 'clang-format-buffer))
 
 (add-hook 'c++-mode-hook
           (lambda ()
@@ -697,15 +681,15 @@ saving the buffer.")
 ;;
 ;; ... Go
 ;;
-(use-package go-mode :ensure t :pin melpa)
+(use-package go-mode :ensure t :pin melpa :mode "\\.go\\'")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Rust
 ;;
-(use-package cargo :ensure t :pin melpa)
-(use-package cargo-mode :ensure t :pin melpa)
-(use-package rust-mode :ensure t :pin melpa)
+(use-package rust-mode :ensure t :pin melpa :mode "\\.rs\\'")
+(use-package cargo :ensure t :pin melpa :after rust-mode)
+(use-package cargo-mode :ensure t :pin melpa :after rust-mode)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Python
@@ -713,15 +697,14 @@ saving the buffer.")
 (add-to-list 'auto-mode-alist
              '("poetry.lock" . toml-mode))
 
-(use-package pipenv :ensure t :pin melpa)
-(use-package pipenv :hook (python-mode . pipenv-mode))
+(use-package pipenv :ensure t :pin melpa :hook (python-mode . pipenv-mode))
 
-(use-package jedi :ensure t :pin melpa)
-(use-package company-jedi :ensure t :pin melpa)
-(use-package elpy :ensure t :pin melpa)
+(use-package jedi :ensure t :pin melpa :after python)
+(use-package company-jedi :ensure t :pin melpa :after (company jedi))
+(use-package elpy :ensure t :pin melpa :commands elpy-enable)
 (use-package python-black :ensure t :pin melpa
   :hook (python-mode . python-black-on-save-mode))
-(use-package flymake-python-pyflakes :ensure t :pin melpa)
+(use-package flymake-python-pyflakes :ensure t :pin melpa :after python)
 ;; (use-package jedi-direx :ensure t :pin melpa)
 (add-hook 'python-mode-hook 'flycheck-mode)
 (use-package flymake-ruff
@@ -748,19 +731,18 @@ commands to use in that buffer."
 ;; ... OCaml
 ;;
 
-(use-package utop :ensure t :pin melpa)
-(use-package dune :ensure t :pin melpa)
-(use-package dune-format :ensure t :pin melpa)
-(use-package merlin :ensure t :pin melpa)
-(use-package merlin-company :ensure t :pin melpa)
-(use-package merlin-eldoc :ensure t :pin melpa)
-(use-package merlin-iedit :ensure t :pin melpa)
+(use-package utop :ensure t :pin melpa :commands utop)
+(use-package dune :ensure t :pin melpa :mode ("\\`dune\\'" "\\`dune-project\\'"))
+(use-package dune-format :ensure t :pin melpa :after dune)
+(use-package merlin :ensure t :pin melpa :commands merlin-mode :after tuareg)
+(use-package merlin-company :ensure t :pin melpa :after (merlin company))
+(use-package merlin-eldoc :ensure t :pin melpa :after merlin)
+(use-package merlin-iedit :ensure t :pin melpa :after merlin)
 ;; (use-package ocaml-format :ensure t :pin melpa)
 
-(use-package opam-switch-mode :ensure t :pin melpa)
-(use-package tuareg :ensure t :pin melpa)
+(use-package opam-switch-mode :ensure t :pin melpa :commands opam-switch-mode)
+(use-package tuareg :ensure t :pin melpa :mode ("\\.ml\\'" "\\.mli\\'"))
 (add-to-list 'auto-mode-alist '("\\.atd\\'" . tuareg-mode))
-(require 'merlin)
 
 
 
@@ -776,23 +758,23 @@ commands to use in that buffer."
 ;;
 ;; ... Shells
 ;;
-(use-package powershell :ensure t :pin melpa)
+(use-package powershell :ensure t :pin melpa :mode "\\.ps1\\'")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
 ;; ... Text Formats
 ;;
 
-(use-package json-mode :ensure t :pin melpa)
-(use-package json-par :ensure t :pin melpa)
-(use-package toml-mode :ensure t :pin melpa)
-(use-package yaml-mode :ensure t :pin melpa)
+(use-package json-mode :ensure t :pin melpa :mode "\\.json\\'")
+(use-package json-par :ensure t :pin melpa :after json-mode)
+(use-package toml-mode :ensure t :pin melpa :mode "\\.toml\\'")
+(use-package yaml-mode :ensure t :pin melpa :mode ("\\.yml\\'" "\\.yaml\\'"))
 (add-to-list 'auto-mode-alist '("\\.xsd\\'" . xml-mode))
 (add-to-list 'auto-mode-alist `("Pipfile" . toml-mode))
 (add-to-list 'auto-mode-alist '("\\.xslt\\'" . xml-mode))
-(require 'rng-loc)
 (add-hook 'nxml-mode-hook
 	  (lambda ()
+	     (require 'rng-loc)
 	     (make-local-variable 'indent-tabs-mode)
 	     (setq indent-tabs-mode nil)
 	     (add-to-list 'rng-schema-locating-files
@@ -803,8 +785,8 @@ commands to use in that buffer."
 ;; ... Grammars
 ;;
 
-(use-package bnf-mode :ensure t :pin melpa)
-(use-package ebnf-mode :ensure t :pin melpa)
+(use-package bnf-mode :ensure t :pin melpa :mode "\\.bnf\\'")
+(use-package ebnf-mode :ensure t :pin melpa :mode "\\.ebnf\\'")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -812,11 +794,9 @@ commands to use in that buffer."
 ;; ... Text and documentation
 ;;
 
-(use-package markdown-mode :ensure t :pin melpa)
-(use-package markdown-preview-eww :ensure t :pin melpa)
-(use-package markdown-preview-mode :ensure t :pin melpa)
-
-(require 'markdown-mode)
+(use-package markdown-mode :ensure t :pin melpa :mode ("\\.md\\'" "\\.markdown\\'"))
+(use-package markdown-preview-eww :ensure t :pin melpa :after markdown-mode)
+(use-package markdown-preview-mode :ensure t :pin melpa :after markdown-mode)
 
 (defvar my-markdown-preview-theme 'github-dark
   "Current markdown preview theme name.")
@@ -875,7 +855,8 @@ commands to use in that buffer."
     (my-markdown-preview-set-theme next)
     (message "Markdown preview theme: %s" next)))
 
-(my-markdown-preview-set-theme 'github-dark)
+(with-eval-after-load 'markdown-preview-mode
+  (my-markdown-preview-set-theme 'github-dark))
 
 
 

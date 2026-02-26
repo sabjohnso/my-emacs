@@ -1,7 +1,5 @@
 ;;; my-closet.el --- Where I keep my skeletons -*- lexical-binding: t -*-
 
-(require 'cc-mode)
-(require 'json-mode)
 (require 'abbrev)
 
 (require 'skeleton)
@@ -17,8 +15,6 @@
   "main(int" _ ", char**){" \n
   "return 0;" \n
   "}" \n)
-(define-abbrev c++-mode-abbrev-table "skmain" "" 'my-c++-main-skeleton)
-
 (define-skeleton my-c++-niebloid-skeleton
   "Skeleton for neibloids"
   "Name: "
@@ -100,8 +96,6 @@ namespace nstd {
   constexpr " (capitalize str) " " str "{};
 
 } // end of namespace nstd")
-(define-abbrev c++-mode-abbrev-table "skniebloid" "" 'my-c++-niebloid-skeleton)
-
 (define-skeleton my-c++-binary-niebloid-skeleton
   "A skeleton for binary niebloids"
   "Name: "
@@ -186,9 +180,6 @@ namespace nstd {
 
 } // end of namespace nstd
 ")
-(define-abbrev c++-mode-abbrev-table "skniebloid2" "" 'my-c++-binary-niebloid-skeleton)
-
-
 (define-skeleton my-c++-include-section-skeleton
   "Skeleton for a group of C++ include statements"
   "Name: "
@@ -196,24 +187,16 @@ namespace nstd {
   "// ... " str " header files" \n
   "//" \n
   "#include <" _ ">")
-(define-abbrev c++-mode-abbrev-table "skincs" "" 'my-c++-include-section-skeleton)
-
 (define-skeleton my-c++-include-skeleton
   "Skeleton of an include derective"
   nil
   "#include <" _ ">")
-(define-abbrev c++-mode-abbrev-table "skinc" "" 'my-c++-include-skeleton)
-
-
 (define-skeleton my-c++-namespace-skeleton
   "Skeleton of a C++ namespace"
   "Name: "
   > "namespace " str "{" \n
   > _ \n
   > "} // end of namespace " str \n)
-(define-abbrev c++-mode-abbrev-table "skns" "" 'my-c++-namespace-skeleton)
-
-
 (define-skeleton my-c++-class-skeleton
   "Skeleton of a C++ class"
   "Name: "
@@ -224,8 +207,6 @@ namespace nstd {
   > "public:" \n
   > "private:" \n
   > "} // end of class " str \n)
-(define-abbrev c++-mode-abbrev-table "skcls" "" 'my-c++-namespace-skeleton)
-
 (define-skeleton my-c++-section-skeleton
   "Skeleton of a C++ Catch2 section"
   "Section Name: "
@@ -233,9 +214,6 @@ namespace nstd {
   SECTION(\"" str "\"){
   }
   ")
-(define-abbrev c++-mode-abbrev-table "sksec" "" 'my-c++-section-skeleton)
-
-
 (define-skeleton my-c++-template-parameter-list-skeleton
   "Skeleton of C++ template parametrers"
   ""
@@ -275,7 +253,16 @@ namespace nstd {
   > "} // end of namespace concepts" \n
   > "constexpr auto " str " = []<" _ ">(){}" \n
   > \n)
-(define-abbrev c++-mode-abbrev-table "skcust" "" 'my-c++-customization-point-skeleton)
+(with-eval-after-load 'cc-mode
+  (define-abbrev c++-mode-abbrev-table "skmain" "" 'my-c++-main-skeleton)
+  (define-abbrev c++-mode-abbrev-table "skniebloid" "" 'my-c++-niebloid-skeleton)
+  (define-abbrev c++-mode-abbrev-table "skniebloid2" "" 'my-c++-binary-niebloid-skeleton)
+  (define-abbrev c++-mode-abbrev-table "skincs" "" 'my-c++-include-section-skeleton)
+  (define-abbrev c++-mode-abbrev-table "skinc" "" 'my-c++-include-skeleton)
+  (define-abbrev c++-mode-abbrev-table "skns" "" 'my-c++-namespace-skeleton)
+  (define-abbrev c++-mode-abbrev-table "skcls" "" 'my-c++-class-skeleton)
+  (define-abbrev c++-mode-abbrev-table "sksec" "" 'my-c++-section-skeleton)
+  (define-abbrev c++-mode-abbrev-table "skcust" "" 'my-c++-customization-point-skeleton))
 
 
 ;;

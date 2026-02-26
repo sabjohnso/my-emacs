@@ -27,7 +27,8 @@
   '(is-true
     is-false
     is
-    test))
+    test
+    in-suite))
 
 (defun my-common-lisp-misc-introducer-keywords ()
   '(make-instance))
@@ -46,7 +47,6 @@
 
 (defun my-common-lisp-introducer-rule ()
   (list (my-common-lisp-introducer-pattern) 1 font-lock-keyword-face))
-
 
 
 (defun my-add-lisp-keywords ()

@@ -181,10 +181,24 @@ list contains the optional arguments."
     (string-join (mapcar #'my/gptel--arg-spec-to-doc-string arg-specs) "\n")))
 
 
-(defun my/gptel--lambda-list-p (arg)
+(cl-defun my/gptel--lambda-list-p (arg)
   "Return `t' if the input is a list of proper argument specifications
 for a gptel tool. Otherwise, return `nil'"
   (plistp arg))
+
+
+(cl-defun my/gptel--project-path-p (path)
+  "Return `t' if `PATH' is a subpath of the project root.  Otherwise, return `nil'"
+  (cl-assert (stringp path))
+  (let* ((path (expand-file-name path))
+         (proj (project-current t))
+         (root   (expand-file-name (project-root proj)))
+         (relative-path (file-relative-name path root)))
+    (cl-assert (file-name-absolute-p path))
+    (cl-assert (file-name-absolute-p root))
+    (and (not (string-match-p "\\`\\.\\./" relative-path))
+         (not (equal relative-path "")))))
+
 
 
 (cl-defmacro my/gptel-defun (tool-name (&rest arg-specs) doc (&rest attributes) &rest body)
@@ -482,6 +496,7 @@ visiting a file, it must not have any unsaved changes."
 (my/gptel-defun compile ()
   "Execute `compile-command' and return the output as a string"
   (:category "utility" :confirm my/gptel-unsandboxed)
+  (save-some-buffers t)
   (concat (format "Executed the command \"%s\" a which produced the following output:\n\n" compile-command)
           (shell-command-to-string compile-command)))
 
@@ -520,10 +535,7 @@ visiting a file, it must not have any unsaved changes."
   (:category "project" :confirm nil)
   (require 'project)
   (let* ((proj (project-current t))
-         (root (cond
-                ((fboundp 'project-root) (project-root proj))
-                ((fboundp 'project-roots) (car (project-roots proj)))
-                (t default-directory))))
+         (root   (project-root proj)))
     (expand-file-name root)))
 
 (my/gptel-defun project-files ()
@@ -608,18 +620,38 @@ visiting a file, it must not have any unsaved changes."
            (status (shell-command-to-string "git status --porcelain")))
       (format "Branch: %s\n\n%s" branch status))))
 
+(my/gptel-defun opam-search
+  ((:name "pattern" :type "string"
+          :description "Pattern to match against descriptions of packages"))
+  "Match `PATTERN' against the full descriptions of packages,
+return the packages."
+  (:category "opam" :confirm nil)
+  (let* ((proj (project-current))
+         (root (expand-file-name (project-root proj))))
+    (shell-command-to-string
+     (concat "opam search --switch " root " \"" pattern "\""))))
+
+(my/gptel-defun opam-install-deps ()
+  "Using the opam application, install the dependencies of the
+current project."
+  (:category "opam" :confirm nil)
+  (let* ((proj (project-current))
+         (root (expand-file-name (project-root proj))))
+    (shell-command-to-string
+     (concat "opam install " root " --deps-only --switch " root))))
+
 (my/gptel-defun calc
   ((:name "expr" :type "string"
     :description "The arithmetic expression that is to be evaluated"))
   "Evaluate a basic arithmetic expression and return the result as a string."
-  (:category "utility"
-   :confirm nil)
+  (:category "utility" :confirm nil)
   (condition-case err
       (calc-eval (or expr ""))
     (error (format "Error: %s" (error-message-string err)))))
 
-
 (my/gptel-register-global-tool my/gptel-enable-tool-by-name-tool)
+
+
 
 (setq gptel-tools my/gptel-global-tools)
 
