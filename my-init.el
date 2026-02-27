@@ -914,12 +914,17 @@ commands to use in that buffer."
 (add-to-list 'custom-theme-load-path "~/Sandbox/my-emacs/")
 
 (defvar my-current-theme 'my-light
-  "The currently active custom theme (my-light or my-dark).")
+  "The currently active custom theme.")
+
+(defvar my-theme-cycle '(my-light my-dark my-light-256 my-dark-256)
+  "List of themes to cycle through with `my-toggle-theme'.")
 
 (defun my-toggle-theme ()
-  "Toggle between my-light and my-dark themes."
+  "Cycle to the next theme in `my-theme-cycle'."
   (interactive)
-  (let ((next (if (eq my-current-theme 'my-light) 'my-dark 'my-light)))
+  (let* ((tail (or (cdr (memq my-current-theme my-theme-cycle))
+                   my-theme-cycle))
+         (next (car tail)))
     (disable-theme my-current-theme)
     (load-theme next t)
     (setq my-current-theme next)

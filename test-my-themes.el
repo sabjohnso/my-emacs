@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;;
-;; Structural tests for my-light-theme and my-dark-theme.
+;; Structural tests for my-light, my-dark, my-light-256, and my-dark-256 themes.
 ;; Run with: emacs --batch -L . -l test-my-themes.el -f ert-run-tests-batch-and-exit
 
 ;;; Code:
@@ -15,6 +15,11 @@
 (add-to-list 'custom-theme-load-path
              (file-name-directory (or load-file-name buffer-file-name
                                      default-directory)))
+
+;;; --- All known variants ---
+
+(defvar my-theme-test--all-variants '(light dark light-256 dark-256)
+  "All palette variants that must be supported.")
 
 ;;; --- Palette tests ---
 
@@ -32,15 +37,30 @@
     (should (> (length palette) 0))
     (should (consp (car palette)))))
 
+(ert-deftest my-theme-palette-light-256-returns-alist ()
+  "Light-256 palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'light-256)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
+(ert-deftest my-theme-palette-dark-256-returns-alist ()
+  "Dark-256 palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'dark-256)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
 (ert-deftest my-theme-palette-symmetry ()
-  "Light and dark palettes have identical key sets."
-  (let ((light-keys (sort (mapcar #'car (my-theme-palette 'light)) #'string<))
-        (dark-keys  (sort (mapcar #'car (my-theme-palette 'dark))  #'string<)))
-    (should (equal light-keys dark-keys))))
+  "All palette variants have identical key sets."
+  (let ((reference-keys (sort (mapcar #'car (my-theme-palette 'light)) #'string<)))
+    (dolist (variant (cdr my-theme-test--all-variants))
+      (let ((keys (sort (mapcar #'car (my-theme-palette variant)) #'string<)))
+        (should (equal reference-keys keys))))))
 
 (ert-deftest my-theme-palette-all-values-are-strings ()
   "Every palette value is a color string."
-  (dolist (variant '(light dark))
+  (dolist (variant my-theme-test--all-variants)
     (dolist (entry (my-theme-palette variant))
       (should (stringp (cdr entry))))))
 
@@ -62,8 +82,8 @@
   "All OCaml-related palette keys that must be present.")
 
 (ert-deftest my-theme-palette-ocaml-keys-present ()
-  "Both palettes contain all OCaml face keys."
-  (dolist (variant '(light dark))
+  "All palettes contain all OCaml face keys."
+  (dolist (variant my-theme-test--all-variants)
     (let ((keys (mapcar #'car (my-theme-palette variant))))
       (dolist (k my-theme-test--ocaml-face-keys)
         (should (memq k keys))))))
@@ -101,6 +121,38 @@
   (load-theme 'my-dark t)
   (should (memq 'my-dark custom-enabled-themes))
   (disable-theme 'my-dark))
+
+(ert-deftest my-theme-light-256-loads-without-error ()
+  "my-light-256 theme loads without error."
+  (load-theme 'my-light-256 t)
+  (should (memq 'my-light-256 custom-enabled-themes))
+  (disable-theme 'my-light-256))
+
+(ert-deftest my-theme-dark-256-loads-without-error ()
+  "my-dark-256 theme loads without error."
+  (load-theme 'my-dark-256 t)
+  (should (memq 'my-dark-256 custom-enabled-themes))
+  (disable-theme 'my-dark-256))
+
+(ert-deftest my-theme-light-256-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading light-256 theme works cleanly."
+  (load-theme 'my-light-256 t)
+  (should (memq 'my-light-256 custom-enabled-themes))
+  (disable-theme 'my-light-256)
+  (should-not (memq 'my-light-256 custom-enabled-themes))
+  (load-theme 'my-light-256 t)
+  (should (memq 'my-light-256 custom-enabled-themes))
+  (disable-theme 'my-light-256))
+
+(ert-deftest my-theme-dark-256-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading dark-256 theme works cleanly."
+  (load-theme 'my-dark-256 t)
+  (should (memq 'my-dark-256 custom-enabled-themes))
+  (disable-theme 'my-dark-256)
+  (should-not (memq 'my-dark-256 custom-enabled-themes))
+  (load-theme 'my-dark-256 t)
+  (should (memq 'my-dark-256 custom-enabled-themes))
+  (disable-theme 'my-dark-256))
 
 ;;; --- Theme face existence tests ---
 
@@ -188,6 +240,56 @@
       (dolist (face my-theme-test--utop-faces)
         (should (my-theme-test--face-themed-p face 'my-dark)))
     (disable-theme 'my-dark)))
+
+;;; --- 256-color theme face existence tests ---
+
+(ert-deftest my-theme-light-256-defines-tuareg-faces ()
+  "my-light-256 defines all tuareg faces."
+  (load-theme 'my-light-256 t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-light-256)))
+    (disable-theme 'my-light-256)))
+
+(ert-deftest my-theme-dark-256-defines-tuareg-faces ()
+  "my-dark-256 defines all tuareg faces."
+  (load-theme 'my-dark-256 t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-dark-256)))
+    (disable-theme 'my-dark-256)))
+
+(ert-deftest my-theme-light-256-defines-merlin-faces ()
+  "my-light-256 defines all merlin faces."
+  (load-theme 'my-light-256 t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-light-256)))
+    (disable-theme 'my-light-256)))
+
+(ert-deftest my-theme-dark-256-defines-merlin-faces ()
+  "my-dark-256 defines all merlin faces."
+  (load-theme 'my-dark-256 t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-dark-256)))
+    (disable-theme 'my-dark-256)))
+
+(ert-deftest my-theme-light-256-defines-utop-faces ()
+  "my-light-256 defines all utop faces."
+  (load-theme 'my-light-256 t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-light-256)))
+    (disable-theme 'my-light-256)))
+
+(ert-deftest my-theme-dark-256-defines-utop-faces ()
+  "my-dark-256 defines all utop faces."
+  (load-theme 'my-dark-256 t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-dark-256)))
+    (disable-theme 'my-dark-256)))
 
 (provide 'test-my-themes)
 ;;; test-my-themes.el ends here
