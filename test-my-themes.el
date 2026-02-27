@@ -18,7 +18,8 @@
 
 ;;; --- All known variants ---
 
-(defvar my-theme-test--all-variants '(light dark light-256 dark-256)
+(defvar my-theme-test--all-variants
+  '(light dark light-256 dark-256 solarized-dark gruvbox-dark dracula nord)
   "All palette variants that must be supported.")
 
 ;;; --- Palette tests ---
@@ -290,6 +291,202 @@
       (dolist (face my-theme-test--utop-faces)
         (should (my-theme-test--face-themed-p face 'my-dark-256)))
     (disable-theme 'my-dark-256)))
+
+;;; --- Solarized Dark theme tests ---
+
+(ert-deftest my-theme-palette-solarized-dark-returns-alist ()
+  "Solarized-dark palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'solarized-dark)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
+(ert-deftest my-theme-solarized-dark-loads-without-error ()
+  "my-solarized-dark theme loads without error."
+  (load-theme 'my-solarized-dark t)
+  (should (memq 'my-solarized-dark custom-enabled-themes))
+  (disable-theme 'my-solarized-dark))
+
+(ert-deftest my-theme-solarized-dark-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading solarized-dark theme works cleanly."
+  (load-theme 'my-solarized-dark t)
+  (should (memq 'my-solarized-dark custom-enabled-themes))
+  (disable-theme 'my-solarized-dark)
+  (should-not (memq 'my-solarized-dark custom-enabled-themes))
+  (load-theme 'my-solarized-dark t)
+  (should (memq 'my-solarized-dark custom-enabled-themes))
+  (disable-theme 'my-solarized-dark))
+
+(ert-deftest my-theme-solarized-dark-defines-tuareg-faces ()
+  "my-solarized-dark defines all tuareg faces."
+  (load-theme 'my-solarized-dark t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-solarized-dark)))
+    (disable-theme 'my-solarized-dark)))
+
+(ert-deftest my-theme-solarized-dark-defines-merlin-faces ()
+  "my-solarized-dark defines all merlin faces."
+  (load-theme 'my-solarized-dark t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-solarized-dark)))
+    (disable-theme 'my-solarized-dark)))
+
+(ert-deftest my-theme-solarized-dark-defines-utop-faces ()
+  "my-solarized-dark defines all utop faces."
+  (load-theme 'my-solarized-dark t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-solarized-dark)))
+    (disable-theme 'my-solarized-dark)))
+
+;;; --- Gruvbox Dark theme tests ---
+
+(ert-deftest my-theme-palette-gruvbox-dark-returns-alist ()
+  "Gruvbox-dark palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'gruvbox-dark)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
+(ert-deftest my-theme-gruvbox-dark-loads-without-error ()
+  "my-gruvbox-dark theme loads without error."
+  (load-theme 'my-gruvbox-dark t)
+  (should (memq 'my-gruvbox-dark custom-enabled-themes))
+  (disable-theme 'my-gruvbox-dark))
+
+(ert-deftest my-theme-gruvbox-dark-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading gruvbox-dark theme works cleanly."
+  (load-theme 'my-gruvbox-dark t)
+  (should (memq 'my-gruvbox-dark custom-enabled-themes))
+  (disable-theme 'my-gruvbox-dark)
+  (should-not (memq 'my-gruvbox-dark custom-enabled-themes))
+  (load-theme 'my-gruvbox-dark t)
+  (should (memq 'my-gruvbox-dark custom-enabled-themes))
+  (disable-theme 'my-gruvbox-dark))
+
+(ert-deftest my-theme-gruvbox-dark-defines-tuareg-faces ()
+  "my-gruvbox-dark defines all tuareg faces."
+  (load-theme 'my-gruvbox-dark t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-gruvbox-dark)))
+    (disable-theme 'my-gruvbox-dark)))
+
+(ert-deftest my-theme-gruvbox-dark-defines-merlin-faces ()
+  "my-gruvbox-dark defines all merlin faces."
+  (load-theme 'my-gruvbox-dark t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-gruvbox-dark)))
+    (disable-theme 'my-gruvbox-dark)))
+
+(ert-deftest my-theme-gruvbox-dark-defines-utop-faces ()
+  "my-gruvbox-dark defines all utop faces."
+  (load-theme 'my-gruvbox-dark t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-gruvbox-dark)))
+    (disable-theme 'my-gruvbox-dark)))
+
+;;; --- Dracula theme tests ---
+
+(ert-deftest my-theme-palette-dracula-returns-alist ()
+  "Dracula palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'dracula)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
+(ert-deftest my-theme-dracula-loads-without-error ()
+  "my-dracula theme loads without error."
+  (load-theme 'my-dracula t)
+  (should (memq 'my-dracula custom-enabled-themes))
+  (disable-theme 'my-dracula))
+
+(ert-deftest my-theme-dracula-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading dracula theme works cleanly."
+  (load-theme 'my-dracula t)
+  (should (memq 'my-dracula custom-enabled-themes))
+  (disable-theme 'my-dracula)
+  (should-not (memq 'my-dracula custom-enabled-themes))
+  (load-theme 'my-dracula t)
+  (should (memq 'my-dracula custom-enabled-themes))
+  (disable-theme 'my-dracula))
+
+(ert-deftest my-theme-dracula-defines-tuareg-faces ()
+  "my-dracula defines all tuareg faces."
+  (load-theme 'my-dracula t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-dracula)))
+    (disable-theme 'my-dracula)))
+
+(ert-deftest my-theme-dracula-defines-merlin-faces ()
+  "my-dracula defines all merlin faces."
+  (load-theme 'my-dracula t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-dracula)))
+    (disable-theme 'my-dracula)))
+
+(ert-deftest my-theme-dracula-defines-utop-faces ()
+  "my-dracula defines all utop faces."
+  (load-theme 'my-dracula t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-dracula)))
+    (disable-theme 'my-dracula)))
+
+;;; --- Nord theme tests ---
+
+(ert-deftest my-theme-palette-nord-returns-alist ()
+  "Nord palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'nord)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
+(ert-deftest my-theme-nord-loads-without-error ()
+  "my-nord theme loads without error."
+  (load-theme 'my-nord t)
+  (should (memq 'my-nord custom-enabled-themes))
+  (disable-theme 'my-nord))
+
+(ert-deftest my-theme-nord-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading nord theme works cleanly."
+  (load-theme 'my-nord t)
+  (should (memq 'my-nord custom-enabled-themes))
+  (disable-theme 'my-nord)
+  (should-not (memq 'my-nord custom-enabled-themes))
+  (load-theme 'my-nord t)
+  (should (memq 'my-nord custom-enabled-themes))
+  (disable-theme 'my-nord))
+
+(ert-deftest my-theme-nord-defines-tuareg-faces ()
+  "my-nord defines all tuareg faces."
+  (load-theme 'my-nord t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-nord)))
+    (disable-theme 'my-nord)))
+
+(ert-deftest my-theme-nord-defines-merlin-faces ()
+  "my-nord defines all merlin faces."
+  (load-theme 'my-nord t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-nord)))
+    (disable-theme 'my-nord)))
+
+(ert-deftest my-theme-nord-defines-utop-faces ()
+  "my-nord defines all utop faces."
+  (load-theme 'my-nord t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-nord)))
+    (disable-theme 'my-nord)))
 
 (provide 'test-my-themes)
 ;;; test-my-themes.el ends here

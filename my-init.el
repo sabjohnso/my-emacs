@@ -916,7 +916,9 @@ commands to use in that buffer."
 (defvar my-current-theme 'my-light
   "The currently active custom theme.")
 
-(defvar my-theme-cycle '(my-light my-dark my-light-256 my-dark-256)
+(defvar my-theme-cycle
+  '(my-light my-dark my-solarized-dark my-gruvbox-dark
+    my-dracula my-nord my-light-256 my-dark-256)
   "List of themes to cycle through with `my-toggle-theme'.")
 
 (defun my-toggle-theme ()
