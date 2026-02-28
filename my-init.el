@@ -31,7 +31,6 @@
 
 (use-package org-tempo :after org)
 
-(use-package vterm :ensure t :commands (vterm vterm-mode))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
@@ -878,36 +877,6 @@ commands to use in that buffer."
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;
-;; ... LLM Interaction
-;;
-
-(defun my--run-llm-in-vterm (command)
-  "Run COMMAND in a vterm buffer named *COMMAND-<directory>*."
-  (require 'vterm)
-  (let* ((dir-name (file-name-nondirectory
-                    (directory-file-name default-directory)))
-         (buf-name (format "*%s-%s*" command dir-name)))
-    (if (get-buffer buf-name)
-        (pop-to-buffer buf-name)
-      (let ((buf (generate-new-buffer buf-name)))
-        (with-current-buffer buf
-          (vterm-mode)
-          (local-set-key (kbd "<f5>") #'compile)
-          (vterm-send-string (concat command "\n")))
-        (pop-to-buffer buf)))))
-
-(defun my-claude ()
-  "Run claude in a vterm buffer named *claude-<directory>*."
-  (interactive)
-  (my--run-llm-in-vterm "claude"))
-
-(defun my-codex ()
-  "Run codex in a vterm buffer named *codex-<directory>*."
-  (interactive)
-  (my--run-llm-in-vterm "codex"))
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;
 ;; ... Themes
 ;;
 
@@ -941,6 +910,7 @@ commands to use in that buffer."
 (require 'my-racket-extras)
 (require 'my-common-lisp-extras)
 (require 'my-gptel)
+(require 'my-claude-vterm)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (provide 'my-init)
