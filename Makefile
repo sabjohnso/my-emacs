@@ -1,19 +1,39 @@
+EMACS ?= emacs
+ELPA   = $(HOME)/.emacs.d/elpa
 
-EMACS?=emacs
-EMACS_BATCH=$(EMACS) --batch -l my-base-packages.el -L $HOME/.emacs.d/elpa
-EMACS_MAJOR_VERSION = $(shell $(EMACS)  -batch -eval '(princ emacs-major-version)')
-MY_EMACS_FILES = my-racket-extras.elc my-closet.elc my-gptel.elc
+# ELPA package directories needed for batch loading
+GPTEL_DIR     = $(firstword $(wildcard $(ELPA)/gptel-[0-9]*))
+TRANSIENT_DIR = $(firstword $(wildcard $(ELPA)/transient-[0-9]*))
+COMPAT_DIR    = $(firstword $(wildcard $(ELPA)/compat-[0-9]*))
+PCRE2EL_DIR   = $(firstword $(wildcard $(ELPA)/pcre2el-[0-9]*))
 
-.PHONY: all
+# use-package :pin melpa requires package-archives to include MELPA
+PKG_INIT = --eval '(require (quote package))' \
+  --eval '(add-to-list (quote package-archives) (cons "melpa" "https://melpa.org/packages/"))' \
+  --eval '(package-initialize)'
 
-all: $(MY_EMACS_FILES)
+BATCH = $(EMACS) --batch -L .
+BATCH_FULL = $(BATCH) \
+  -L $(GPTEL_DIR) \
+  -L $(TRANSIENT_DIR) \
+  -L $(COMPAT_DIR) \
+  -L $(PCRE2EL_DIR) \
+  $(PKG_INIT)
 
-my-racket-extras.elc : my-racket-extras.el
-	$(EMACS_BATCH) -f batch-byte-compile $<
+COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el
 
-my-gptel.elc : my-gptel.el
-	$(EMACS_BATCH) -f batch-byte-compile $<
+.PHONY: all compile test test-themes test-gptel
 
-my-closet.elc : my-closet.el
-	$(EMACS_BATCH) -f batch-byte-compile $<
+all: compile
 
+compile:
+	$(BATCH_FULL) $(patsubst %,-l %,$(COMPILE_FILES)) \
+	  --eval '(batch-byte-compile)' $(COMPILE_FILES)
+
+test: test-themes test-gptel
+
+test-themes:
+	$(BATCH) -l test-my-themes.el -f ert-run-tests-batch-and-exit
+
+test-gptel:
+	$(BATCH_FULL) -l test-my-gptel.el -f ert-run-tests-batch-and-exit
