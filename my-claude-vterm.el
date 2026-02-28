@@ -240,6 +240,7 @@ Intended for `kill-buffer-hook'."
         ;; Override vterm-copy-mode-map's RET via minor-mode-overriding-map-alist
         ;; (minor mode maps outrank the local map, so use-local-map can't win)
         (let ((map (make-sparse-keymap)))
+          (set-keymap-parent map vterm-copy-mode-map)
           (define-key map (kbd "RET") #'my--vterm-file-link-ret)
           (define-key map [return]    #'my--vterm-file-link-ret)
           (setq-local minor-mode-overriding-map-alist
