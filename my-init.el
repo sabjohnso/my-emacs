@@ -48,6 +48,7 @@
 (global-set-key (kbd "<f5>") #'compile)
 
 (abbrev-mode)
+(scroll-bar-mode -1)
 (setq save-abbrevs 'silently)
 
 (defun my-get-monitor-pixels (&optional frame)
