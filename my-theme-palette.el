@@ -1983,10 +1983,504 @@ Uses Arctic Ice Studio's canonical Nord palette."
     (message-header-subject . "#81a1c1")
     (message-separator  . "#616e88")))
 
+(defun my-theme-palette--crt ()
+  "Return the CRT phosphor dark color palette alist.
+Evokes green (P1) and amber (P3) phosphor monitors from the 1980s."
+  '(;; --- Base ---
+    (bg              . "#0c0c0c")
+    (bg-alt          . "#141414")
+    (bg-highlight    . "#1a2a1a")
+    (bg-region       . "#1a3a1a")
+    (bg-paren-match  . "#2a4a2a")
+    (bg-paren-mismatch . "#4a1a1a")
+    (bg-isearch      . "#3a5a1a")
+    (bg-lazy-isearch . "#1a2a0a")
+    (bg-hl-line      . "#111611")
+    (fg              . "#33cc33")
+    (fg-alt          . "#2aa82a")
+    (fg-dim          . "#1a7a1a")
+    (fg-faint        . "#145014")
+    (cursor          . "#33ff33")
+
+    ;; --- Syntax ---
+    (keyword         . "#ffb000")
+    (string          . "#44dd44")
+    (comment         . "#2a8a2a")
+    (doc             . "#339933")
+    (variable        . "#66ee66")
+    (function-name   . "#ffcc33")
+    (type            . "#cc8800")
+    (constant        . "#ff9933")
+    (builtin         . "#ddaa00")
+    (preprocessor    . "#557755")
+    (negation        . "#ff3333")
+    (warning         . "#ffb000")
+    (error           . "#ff3333")
+    (success         . "#33ff33")
+    (info            . "#ddaa00")
+
+    ;; --- Links ---
+    (link            . "#44dd44")
+    (link-visited    . "#2a9a2a")
+
+    ;; --- Mode line ---
+    (ml-active-bg    . "#1a3a1a")
+    (ml-active-fg    . "#33ff33")
+    (ml-inactive-bg  . "#141414")
+    (ml-inactive-fg  . "#1a7a1a")
+
+    ;; --- Diff / VCS ---
+    (diff-added-bg   . "#0a2a0a")
+    (diff-added-fg   . "#33ff33")
+    (diff-removed-bg . "#2a0a0a")
+    (diff-removed-fg . "#ff3333")
+    (diff-changed-bg . "#2a2a0a")
+    (diff-changed-fg . "#ffb000")
+    (diff-hunk-bg    . "#0a1a0a")
+    (diff-hunk-fg    . "#33cc33")
+    (diff-fine-added . "#1a4a1a")
+    (diff-fine-removed . "#4a1a1a")
+    (diff-indicator-added . "#33ff33")
+    (diff-indicator-removed . "#ff3333")
+
+    ;; --- Org mode ---
+    (ol1-bg          . "#1a2a1a")
+    (ol1-fg          . "#33ff33")
+    (ol2-bg          . "#1a2a0a")
+    (ol2-fg          . "#ffcc33")
+    (ol3-bg          . "#0a2a1a")
+    (ol3-fg          . "#44dd44")
+    (ol4-fg          . "#ffb000")
+    (ol5-fg          . "#66ee66")
+    (ol6-fg          . "#cc8800")
+    (ol7-fg          . "#ff9933")
+    (ol8-fg          . "#557755")
+    (org-todo-fg     . "#ff3333")
+    (org-done-fg     . "#33ff33")
+    (org-block-bg    . "#0e0e0e")
+    (org-code-bg     . "#111611")
+    (org-code-fg     . "#ff9933")
+    (org-table-bg    . "#111611")
+    (org-date-fg     . "#ddaa00")
+    (org-tag-fg      . "#1a7a1a")
+    (org-drawer-fg   . "#ffb000")
+
+    ;; --- Outline / Markdown ---
+    (outline-1       . "#33ff33")
+    (outline-2       . "#ffcc33")
+    (outline-3       . "#44dd44")
+    (outline-4       . "#ffb000")
+    (outline-5       . "#66ee66")
+    (outline-6       . "#cc8800")
+    (outline-7       . "#ff9933")
+    (outline-8       . "#557755")
+
+    ;; --- Company ---
+    (company-bg      . "#141414")
+    (company-fg      . "#33cc33")
+    (company-sel-bg  . "#1a3a1a")
+    (company-sel-fg  . "#33ff33")
+    (company-border  . "#1a3a1a")
+
+    ;; --- Flycheck / Flyspell ---
+    (flycheck-error-bg . "#2a0a0a")
+    (flycheck-warn-bg  . "#2a2a0a")
+    (flycheck-info-bg  . "#0a2a0a")
+
+    ;; --- Rainbow delimiters ---
+    (rainbow-1       . "#33cc33")
+    (rainbow-2       . "#ffb000")
+    (rainbow-3       . "#44dd44")
+    (rainbow-4       . "#cc8800")
+    (rainbow-5       . "#66ee66")
+    (rainbow-6       . "#ffcc33")
+    (rainbow-7       . "#2aa82a")
+    (rainbow-8       . "#ff9933")
+    (rainbow-9       . "#ddaa00")
+
+    ;; --- ANSI colors ---
+    (ansi-black      . "#0c0c0c")
+    (ansi-red        . "#cc3333")
+    (ansi-green      . "#33cc33")
+    (ansi-yellow     . "#ccaa00")
+    (ansi-blue       . "#338833")
+    (ansi-magenta    . "#aa6600")
+    (ansi-cyan       . "#44aa44")
+    (ansi-white      . "#33cc33")
+    (ansi-bright-black   . "#1a7a1a")
+    (ansi-bright-red     . "#ff3333")
+    (ansi-bright-green   . "#33ff33")
+    (ansi-bright-yellow  . "#ffcc33")
+    (ansi-bright-blue    . "#44dd44")
+    (ansi-bright-magenta . "#ffb000")
+    (ansi-bright-cyan    . "#66ee66")
+    (ansi-bright-white   . "#77ff77")
+
+    ;; --- OCaml / Tuareg ---
+    (tuareg-governing   . "#ffb000")
+    (tuareg-multistage  . "#cc8800")
+    (tuareg-operator    . "#ddaa00")
+    (tuareg-module      . "#ffcc33")
+    (tuareg-constructor . "#44dd44")
+    (tuareg-label       . "#ff9933")
+    (tuareg-double-semi . "#ff6633")
+    (tuareg-error       . "#ff3333")
+    (tuareg-interactive-output    . "#33cc33")
+    (tuareg-interactive-error     . "#ff3333")
+    (tuareg-interactive-directive . "#ffb000")
+    (tuareg-attribute        . "#557755")
+    (tuareg-extension-node   . "#44dd44")
+    (tuareg-doc-markup       . "#cc8800")
+    (tuareg-doc-verbatim     . "#339933")
+    (tuareg-line-number      . "#1a7a1a")
+    (tuareg-opam-error       . "#ff3333")
+    (tuareg-opam-pkg-variable . "#66ee66")
+
+    ;; --- Merlin ---
+    (merlin-type       . "#1a2a1a")
+    (merlin-warn       . "#2a2a0a")
+    (merlin-error      . "#2a0a0a")
+
+    ;; --- UTop ---
+    (utop-prompt       . "#ffb000")
+    (utop-stdout       . "#33cc33")
+    (utop-stderr       . "#ff3333")
+    (utop-frozen       . "#1a7a1a")
+    (utop-error        . "#ff3333")
+
+    ;; --- Misc ---
+    (shadow            . "#1a7a1a")
+    (line-number       . "#145014")
+    (line-number-current . "#33cc33")
+    (tooltip-bg        . "#141414")
+    (tooltip-fg        . "#33cc33")
+    (header-line-bg    . "#141414")
+    (header-line-fg    . "#33cc33")
+    (whitespace        . "#1a1a1a")
+    (trailing-ws       . "#4a1a1a")
+    (escape-glyph      . "#ff9933")
+    (minibuffer-prompt  . "#ffb000")
+    (fringe            . "#0c0c0c")
+    (vertical-border   . "#1a3a1a")
+    (yas-field         . "#1a2a0a")
+
+    ;; --- Ediff ---
+    (ediff-current-a   . "#2a0a0a")
+    (ediff-current-b   . "#0a2a0a")
+    (ediff-current-c   . "#2a2a0a")
+    (ediff-fine-a      . "#4a1a1a")
+    (ediff-fine-b      . "#1a4a1a")
+    (ediff-fine-c      . "#4a4a0a")
+    (ediff-even        . "#111611")
+    (ediff-odd         . "#1a1a1a")
+
+    ;; --- Magit ---
+    (magit-section-bg  . "#111611")
+    (magit-section-fg  . "#33cc33")
+    (magit-branch-local  . "#ffb000")
+    (magit-branch-remote . "#33ff33")
+    (magit-tag         . "#ff9933")
+
+    ;; --- Dired ---
+    (dired-directory   . "#ffb000")
+    (dired-header      . "#ffcc33")
+    (dired-symlink     . "#44dd44")
+    (dired-mark        . "#ff3333")
+
+    ;; --- Compilation / Grep ---
+    (comp-error        . "#ff3333")
+    (comp-warning      . "#ffb000")
+    (comp-info         . "#33ff33")
+    (comp-line-number  . "#ddaa00")
+    (grep-match        . "#3a5a1a")
+    (grep-file         . "#ddaa00")
+    (grep-line         . "#ff9933")
+
+    ;; --- LSP ---
+    (lsp-face-highlight . "#1a2a1a")
+
+    ;; --- Calendar ---
+    (calendar-today    . "#ffb000")
+    (calendar-holiday  . "#ff3333")
+
+    ;; --- Speedbar ---
+    (speedbar-file     . "#33cc33")
+    (speedbar-dir      . "#ffb000")
+    (speedbar-tag      . "#44dd44")
+    (speedbar-selected . "#33ff33")
+    (speedbar-highlight . "#1a2a1a")
+
+    ;; --- Gnus / Message ---
+    (gnus-group-1      . "#ffb000")
+    (gnus-group-2      . "#33ff33")
+    (gnus-group-3      . "#cc8800")
+    (gnus-header-from  . "#ffcc33")
+    (gnus-header-subject . "#ffb000")
+    (gnus-header-name  . "#44dd44")
+    (gnus-header-content . "#339933")
+    (gnus-summary-selected . "#ffb000")
+    (gnus-summary-normal . "#33cc33")
+    (gnus-cite-1       . "#ffcc33")
+    (gnus-cite-2       . "#44dd44")
+    (gnus-cite-3       . "#cc8800")
+    (message-header-name . "#44dd44")
+    (message-header-to   . "#ffcc33")
+    (message-header-cc   . "#339933")
+    (message-header-other . "#ddaa00")
+    (message-header-subject . "#ffb000")
+    (message-separator  . "#1a7a1a")))
+
+(defun my-theme-palette--tron ()
+  "Return the Tron Legacy dark color palette alist.
+Inspired by the Tron universe — deep black with electric cyan and orange."
+  '(;; --- Base ---
+    (bg              . "#0a0a0f")
+    (bg-alt          . "#0f1117")
+    (bg-highlight    . "#0f1a2a")
+    (bg-region       . "#0f2a4a")
+    (bg-paren-match  . "#0f3a5a")
+    (bg-paren-mismatch . "#4a0f0f")
+    (bg-isearch      . "#1a3a5a")
+    (bg-lazy-isearch . "#0f1a2a")
+    (bg-hl-line      . "#0c0e14")
+    (fg              . "#c0d0e0")
+    (fg-alt          . "#8090a0")
+    (fg-dim          . "#506070")
+    (fg-faint        . "#354050")
+    (cursor          . "#6fc3df")
+
+    ;; --- Syntax ---
+    (keyword         . "#6fc3df")
+    (string          . "#7fbf5f")
+    (comment         . "#405060")
+    (doc             . "#5a8a5a")
+    (variable        . "#8fd4e8")
+    (function-name   . "#df740c")
+    (type            . "#4fafcf")
+    (constant        . "#df740c")
+    (builtin         . "#5fbfdf")
+    (preprocessor    . "#506878")
+    (negation        . "#df3030")
+    (warning         . "#df740c")
+    (error           . "#df3030")
+    (success         . "#33ff33")
+    (info            . "#6fc3df")
+
+    ;; --- Links ---
+    (link            . "#6fc3df")
+    (link-visited    . "#4f8faf")
+
+    ;; --- Mode line ---
+    (ml-active-bg    . "#0f2a4a")
+    (ml-active-fg    . "#6fc3df")
+    (ml-inactive-bg  . "#0f1117")
+    (ml-inactive-fg  . "#405060")
+
+    ;; --- Diff / VCS ---
+    (diff-added-bg   . "#0a1f0a")
+    (diff-added-fg   . "#33ff33")
+    (diff-removed-bg . "#2a0a0a")
+    (diff-removed-fg . "#df3030")
+    (diff-changed-bg . "#1a1a0a")
+    (diff-changed-fg . "#df740c")
+    (diff-hunk-bg    . "#0a0f1a")
+    (diff-hunk-fg    . "#6fc3df")
+    (diff-fine-added . "#1a3a1a")
+    (diff-fine-removed . "#3a1a1a")
+    (diff-indicator-added . "#33ff33")
+    (diff-indicator-removed . "#df3030")
+
+    ;; --- Org mode ---
+    (ol1-bg          . "#0f1a2a")
+    (ol1-fg          . "#6fc3df")
+    (ol2-bg          . "#0f1117")
+    (ol2-fg          . "#df740c")
+    (ol3-bg          . "#0a1a0f")
+    (ol3-fg          . "#7fbf5f")
+    (ol4-fg          . "#df3030")
+    (ol5-fg          . "#8fd4e8")
+    (ol6-fg          . "#5fbfdf")
+    (ol7-fg          . "#df740c")
+    (ol8-fg          . "#506878")
+    (org-todo-fg     . "#df3030")
+    (org-done-fg     . "#33ff33")
+    (org-block-bg    . "#0c0e14")
+    (org-code-bg     . "#0f1117")
+    (org-code-fg     . "#df740c")
+    (org-table-bg    . "#0f1117")
+    (org-date-fg     . "#5fbfdf")
+    (org-tag-fg      . "#405060")
+    (org-drawer-fg   . "#6fc3df")
+
+    ;; --- Outline / Markdown ---
+    (outline-1       . "#6fc3df")
+    (outline-2       . "#df740c")
+    (outline-3       . "#7fbf5f")
+    (outline-4       . "#df3030")
+    (outline-5       . "#8fd4e8")
+    (outline-6       . "#5fbfdf")
+    (outline-7       . "#df740c")
+    (outline-8       . "#506878")
+
+    ;; --- Company ---
+    (company-bg      . "#0f1117")
+    (company-fg      . "#c0d0e0")
+    (company-sel-bg  . "#0f2a4a")
+    (company-sel-fg  . "#6fc3df")
+    (company-border  . "#0f2a4a")
+
+    ;; --- Flycheck / Flyspell ---
+    (flycheck-error-bg . "#2a0a0a")
+    (flycheck-warn-bg  . "#1a1a0a")
+    (flycheck-info-bg  . "#0a1f0a")
+
+    ;; --- Rainbow delimiters ---
+    (rainbow-1       . "#6fc3df")
+    (rainbow-2       . "#df740c")
+    (rainbow-3       . "#7fbf5f")
+    (rainbow-4       . "#8fd4e8")
+    (rainbow-5       . "#df3030")
+    (rainbow-6       . "#5fbfdf")
+    (rainbow-7       . "#4fafcf")
+    (rainbow-8       . "#df8f3c")
+    (rainbow-9       . "#c0d0e0")
+
+    ;; --- ANSI colors ---
+    (ansi-black      . "#0a0a0f")
+    (ansi-red        . "#df3030")
+    (ansi-green      . "#33cc33")
+    (ansi-yellow     . "#df740c")
+    (ansi-blue       . "#4f8faf")
+    (ansi-magenta    . "#8f5faf")
+    (ansi-cyan       . "#6fc3df")
+    (ansi-white      . "#c0d0e0")
+    (ansi-bright-black   . "#506070")
+    (ansi-bright-red     . "#ff5050")
+    (ansi-bright-green   . "#33ff33")
+    (ansi-bright-yellow  . "#ff9933")
+    (ansi-bright-blue    . "#6fc3df")
+    (ansi-bright-magenta . "#af7fdf")
+    (ansi-bright-cyan    . "#8fd4e8")
+    (ansi-bright-white   . "#e0f0ff")
+
+    ;; --- OCaml / Tuareg ---
+    (tuareg-governing   . "#6fc3df")
+    (tuareg-multistage  . "#8f5faf")
+    (tuareg-operator    . "#df740c")
+    (tuareg-module      . "#4fafcf")
+    (tuareg-constructor . "#8fd4e8")
+    (tuareg-label       . "#df8f3c")
+    (tuareg-double-semi . "#df3030")
+    (tuareg-error       . "#df3030")
+    (tuareg-interactive-output    . "#33cc33")
+    (tuareg-interactive-error     . "#df3030")
+    (tuareg-interactive-directive . "#6fc3df")
+    (tuareg-attribute        . "#506878")
+    (tuareg-extension-node   . "#7fbf5f")
+    (tuareg-doc-markup       . "#8f5faf")
+    (tuareg-doc-verbatim     . "#5fbfdf")
+    (tuareg-line-number      . "#405060")
+    (tuareg-opam-error       . "#df3030")
+    (tuareg-opam-pkg-variable . "#8fd4e8")
+
+    ;; --- Merlin ---
+    (merlin-type       . "#0f1a2a")
+    (merlin-warn       . "#1a1a0a")
+    (merlin-error      . "#2a0a0a")
+
+    ;; --- UTop ---
+    (utop-prompt       . "#6fc3df")
+    (utop-stdout       . "#c0d0e0")
+    (utop-stderr       . "#df3030")
+    (utop-frozen       . "#405060")
+    (utop-error        . "#df3030")
+
+    ;; --- Misc ---
+    (shadow            . "#405060")
+    (line-number       . "#253040")
+    (line-number-current . "#c0d0e0")
+    (tooltip-bg        . "#0f1117")
+    (tooltip-fg        . "#c0d0e0")
+    (header-line-bg    . "#0f1117")
+    (header-line-fg    . "#c0d0e0")
+    (whitespace        . "#151520")
+    (trailing-ws       . "#3a1a1a")
+    (escape-glyph      . "#df740c")
+    (minibuffer-prompt  . "#6fc3df")
+    (fringe            . "#0a0a0f")
+    (vertical-border   . "#0f2a4a")
+    (yas-field         . "#0f1a2a")
+
+    ;; --- Ediff ---
+    (ediff-current-a   . "#2a0a0a")
+    (ediff-current-b   . "#0a1f0a")
+    (ediff-current-c   . "#1a1a0a")
+    (ediff-fine-a      . "#3a1a1a")
+    (ediff-fine-b      . "#1a3a1a")
+    (ediff-fine-c      . "#3a3a0a")
+    (ediff-even        . "#0c0e14")
+    (ediff-odd         . "#0f1117")
+
+    ;; --- Magit ---
+    (magit-section-bg  . "#0c0e14")
+    (magit-section-fg  . "#c0d0e0")
+    (magit-branch-local  . "#6fc3df")
+    (magit-branch-remote . "#33cc33")
+    (magit-tag         . "#df740c")
+
+    ;; --- Dired ---
+    (dired-directory   . "#6fc3df")
+    (dired-header      . "#8fd4e8")
+    (dired-symlink     . "#5fbfdf")
+    (dired-mark        . "#df3030")
+
+    ;; --- Compilation / Grep ---
+    (comp-error        . "#df3030")
+    (comp-warning      . "#df740c")
+    (comp-info         . "#33cc33")
+    (comp-line-number  . "#5fbfdf")
+    (grep-match        . "#1a3a5a")
+    (grep-file         . "#5fbfdf")
+    (grep-line         . "#df740c")
+
+    ;; --- LSP ---
+    (lsp-face-highlight . "#0f1a2a")
+
+    ;; --- Calendar ---
+    (calendar-today    . "#6fc3df")
+    (calendar-holiday  . "#df3030")
+
+    ;; --- Speedbar ---
+    (speedbar-file     . "#c0d0e0")
+    (speedbar-dir      . "#6fc3df")
+    (speedbar-tag      . "#7fbf5f")
+    (speedbar-selected . "#df740c")
+    (speedbar-highlight . "#0f1a2a")
+
+    ;; --- Gnus / Message ---
+    (gnus-group-1      . "#6fc3df")
+    (gnus-group-2      . "#33cc33")
+    (gnus-group-3      . "#8f5faf")
+    (gnus-header-from  . "#df740c")
+    (gnus-header-subject . "#6fc3df")
+    (gnus-header-name  . "#7fbf5f")
+    (gnus-header-content . "#5fbfdf")
+    (gnus-summary-selected . "#6fc3df")
+    (gnus-summary-normal . "#c0d0e0")
+    (gnus-cite-1       . "#6fc3df")
+    (gnus-cite-2       . "#7fbf5f")
+    (gnus-cite-3       . "#8f5faf")
+    (message-header-name . "#7fbf5f")
+    (message-header-to   . "#df740c")
+    (message-header-cc   . "#5fbfdf")
+    (message-header-other . "#8fd4e8")
+    (message-header-subject . "#6fc3df")
+    (message-separator  . "#405060")))
+
 (defun my-theme-palette (variant)
   "Return a color palette alist for VARIANT.
 VARIANT is a symbol: `light', `dark', `light-256', `dark-256',
-`solarized-dark', `gruvbox-dark', `dracula', or `nord'."
+`solarized-dark', `gruvbox-dark', `dracula', `nord', `crt', or `tron'."
   (pcase variant
     ('light          (my-theme-palette--light))
     ('dark           (my-theme-palette--dark))
@@ -1996,6 +2490,8 @@ VARIANT is a symbol: `light', `dark', `light-256', `dark-256',
     ('gruvbox-dark   (my-theme-palette--gruvbox-dark))
     ('dracula        (my-theme-palette--dracula))
     ('nord           (my-theme-palette--nord))
+    ('crt            (my-theme-palette--crt))
+    ('tron           (my-theme-palette--tron))
     (_ (error "Unknown theme variant: %s" variant))))
 
 (defun my-theme-palette-keys ()

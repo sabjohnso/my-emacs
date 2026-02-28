@@ -19,7 +19,7 @@
 ;;; --- All known variants ---
 
 (defvar my-theme-test--all-variants
-  '(light dark light-256 dark-256 solarized-dark gruvbox-dark dracula nord)
+  '(light dark light-256 dark-256 solarized-dark gruvbox-dark dracula nord crt tron)
   "All palette variants that must be supported.")
 
 ;;; --- Palette tests ---
@@ -487,6 +487,104 @@
       (dolist (face my-theme-test--utop-faces)
         (should (my-theme-test--face-themed-p face 'my-nord)))
     (disable-theme 'my-nord)))
+
+;;; --- CRT theme tests ---
+
+(ert-deftest my-theme-palette-crt-returns-alist ()
+  "CRT palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'crt)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
+(ert-deftest my-theme-crt-loads-without-error ()
+  "my-crt theme loads without error."
+  (load-theme 'my-crt t)
+  (should (memq 'my-crt custom-enabled-themes))
+  (disable-theme 'my-crt))
+
+(ert-deftest my-theme-crt-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading crt theme works cleanly."
+  (load-theme 'my-crt t)
+  (should (memq 'my-crt custom-enabled-themes))
+  (disable-theme 'my-crt)
+  (should-not (memq 'my-crt custom-enabled-themes))
+  (load-theme 'my-crt t)
+  (should (memq 'my-crt custom-enabled-themes))
+  (disable-theme 'my-crt))
+
+(ert-deftest my-theme-crt-defines-tuareg-faces ()
+  "my-crt defines all tuareg faces."
+  (load-theme 'my-crt t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-crt)))
+    (disable-theme 'my-crt)))
+
+(ert-deftest my-theme-crt-defines-merlin-faces ()
+  "my-crt defines all merlin faces."
+  (load-theme 'my-crt t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-crt)))
+    (disable-theme 'my-crt)))
+
+(ert-deftest my-theme-crt-defines-utop-faces ()
+  "my-crt defines all utop faces."
+  (load-theme 'my-crt t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-crt)))
+    (disable-theme 'my-crt)))
+
+;;; --- Tron theme tests ---
+
+(ert-deftest my-theme-palette-tron-returns-alist ()
+  "Tron palette returns a non-empty alist."
+  (let ((palette (my-theme-palette 'tron)))
+    (should (listp palette))
+    (should (> (length palette) 0))
+    (should (consp (car palette)))))
+
+(ert-deftest my-theme-tron-loads-without-error ()
+  "my-tron theme loads without error."
+  (load-theme 'my-tron t)
+  (should (memq 'my-tron custom-enabled-themes))
+  (disable-theme 'my-tron))
+
+(ert-deftest my-theme-tron-load-disable-reload-roundtrip ()
+  "Loading, disabling, and reloading tron theme works cleanly."
+  (load-theme 'my-tron t)
+  (should (memq 'my-tron custom-enabled-themes))
+  (disable-theme 'my-tron)
+  (should-not (memq 'my-tron custom-enabled-themes))
+  (load-theme 'my-tron t)
+  (should (memq 'my-tron custom-enabled-themes))
+  (disable-theme 'my-tron))
+
+(ert-deftest my-theme-tron-defines-tuareg-faces ()
+  "my-tron defines all tuareg faces."
+  (load-theme 'my-tron t)
+  (unwind-protect
+      (dolist (face my-theme-test--tuareg-faces)
+        (should (my-theme-test--face-themed-p face 'my-tron)))
+    (disable-theme 'my-tron)))
+
+(ert-deftest my-theme-tron-defines-merlin-faces ()
+  "my-tron defines all merlin faces."
+  (load-theme 'my-tron t)
+  (unwind-protect
+      (dolist (face my-theme-test--merlin-faces)
+        (should (my-theme-test--face-themed-p face 'my-tron)))
+    (disable-theme 'my-tron)))
+
+(ert-deftest my-theme-tron-defines-utop-faces ()
+  "my-tron defines all utop faces."
+  (load-theme 'my-tron t)
+  (unwind-protect
+      (dolist (face my-theme-test--utop-faces)
+        (should (my-theme-test--face-themed-p face 'my-tron)))
+    (disable-theme 'my-tron)))
 
 (provide 'test-my-themes)
 ;;; test-my-themes.el ends here

@@ -918,7 +918,7 @@ commands to use in that buffer."
 
 (defvar my-theme-cycle
   '(my-light my-dark my-solarized-dark my-gruvbox-dark
-    my-dracula my-nord my-light-256 my-dark-256)
+    my-dracula my-nord my-crt my-tron my-light-256 my-dark-256)
   "List of themes to cycle through with `my-toggle-theme'.")
 
 (defun my-toggle-theme ()
