@@ -234,11 +234,117 @@ Intended for `kill-buffer-hook'."
 (defun my--llm-vterm-copy-mode-hook ()
   "Toggle cursor visibility when entering/leaving vterm copy mode."
   (if vterm-copy-mode
-      (setq-local cursor-type 'box)
+      (progn
+        (setq-local cursor-type 'box)
+        (my--llm-vterm-buttonize-files)
+        ;; Override vterm-copy-mode-map's RET via minor-mode-overriding-map-alist
+        ;; (minor mode maps outrank the local map, so use-local-map can't win)
+        (let ((map (make-sparse-keymap)))
+          (define-key map (kbd "RET") #'my--vterm-file-link-ret)
+          (define-key map [return]    #'my--vterm-file-link-ret)
+          (setq-local minor-mode-overriding-map-alist
+                      (list (cons 'vterm-copy-mode map)))))
     (progn
       (setq-local cursor-type nil)
+      (setq-local minor-mode-overriding-map-alist nil)
       ;; Restore our keymap — vterm replaces the local map on copy-mode exit
       (my--llm-vterm-setup-keymap))))
+
+
+;;;; ---------------------------------------------------------------
+;;;; File navigation (file:line buttons in copy-mode)
+;;;; ---------------------------------------------------------------
+
+(declare-function vterm-copy-mode-done "vterm")
+
+(defun my--vterm-file-link-ret ()
+  "Follow file link at point, or fall through to `vterm-copy-mode-done'."
+  (interactive)
+  (if (button-at (point))
+      (push-button)
+    (vterm-copy-mode-done nil)))
+
+(define-button-type 'my-vterm-file-link
+  'face 'compilation-info
+  'follow-link t
+  'action #'my--vterm-file-link-action
+  'help-echo "RET or mouse-1: visit this file location")
+
+(defun my--vterm-file-link-action (button)
+  "Open the file at the location stored in BUTTON properties."
+  (let ((file (button-get button 'my-file))
+        (line (button-get button 'my-line))
+        (col  (button-get button 'my-col)))
+    (when (file-exists-p file)
+      (pop-to-buffer (find-file-noselect file))
+      (when line
+        (goto-char (point-min))
+        (forward-line (1- line))
+        (when col (forward-char (1- col)))))))
+
+(defconst my--vterm-file-extensions
+  (concat "el\\|py\\|js\\|ts\\|tsx\\|jsx\\|json\\|rs\\|go\\|rb"
+          "\\|c\\|h\\|cpp\\|hpp\\|cc\\|hh\\|java\\|kt\\|scala"
+          "\\|ml\\|mli\\|re\\|rei\\|hs\\|lhs\\|clj\\|cljs\\|cljc"
+          "\\|ex\\|exs\\|erl\\|hrl\\|sh\\|bash\\|zsh\\|fish"
+          "\\|pl\\|pm\\|lua\\|vim\\|rkt\\|scm\\|lisp\\|cl\\|asd\\|fnl"
+          "\\|zig\\|nim\\|v\\|sv\\|r\\|R\\|jl\\|dart\\|swift"
+          "\\|m\\|mm\\|cs\\|fs\\|fsx\\|php"
+          "\\|css\\|scss\\|sass\\|less\\|html\\|htm\\|xml\\|svg"
+          "\\|json\\|yaml\\|yml\\|toml\\|ini\\|cfg\\|conf\\|lock"
+          "\\|md\\|org\\|rst\\|txt\\|tex\\|bib\\|csv"
+          "\\|sql\\|graphql\\|proto"
+          "\\|cmake\\|mk\\|dockerfile\\|tf\\|hcl\\|nix\\|dhall")
+  "Known file extensions for source, config, and text files.")
+
+(defconst my--vterm-file-link-pattern
+  (concat
+   "\\(?:^\\|[[:space:]\"'(`]\\)"
+   "\\([-a-zA-Z0-9_.~/]+\\.\\(?:" my--vterm-file-extensions "\\)\\>\\)"
+   "\\(?::\\([0-9]+\\)\\(?::\\([0-9]+\\)\\)?\\)?")
+  "Regexp matching file paths with optional :line[:col].
+Group 1 = file path, group 2 = line (may be nil), group 3 = column (may be nil).")
+
+(defun my--vterm-resolve-file (raw-file project-files-cache)
+  "Resolve RAW-FILE to an absolute path.
+Try expand-file-name first.  For bare filenames (no directory
+separator), fall back to searching PROJECT-FILES-CACHE for a
+unique match by basename."
+  (let ((expanded (expand-file-name raw-file)))
+    (if (file-exists-p expanded)
+        expanded
+      (when (and (not (string-match-p "/" raw-file))
+                 project-files-cache)
+        (let ((matches (seq-filter
+                        (lambda (f)
+                          (string= (file-name-nondirectory f) raw-file))
+                        project-files-cache)))
+          (when (= (length matches) 1)
+            (car matches)))))))
+
+(defun my--llm-vterm-buttonize-files ()
+  "Scan buffer for file path patterns and add buttons.
+Only creates buttons for files that exist on disk."
+  (remove-overlays (point-min) (point-max) 'category 'my-vterm-file-link)
+  (let ((proj-files (ignore-errors
+                      (require 'project)
+                      (when-let ((proj (project-current nil)))
+                        (project-files proj)))))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward my--vterm-file-link-pattern nil t)
+        (let* ((raw-file (match-string-no-properties 1))
+               (file (my--vterm-resolve-file raw-file proj-files))
+               (line (when (match-string 2)
+                       (string-to-number (match-string-no-properties 2))))
+               (col  (when (match-string 3)
+                       (string-to-number (match-string-no-properties 3)))))
+          (when file
+            (make-button (match-beginning 1) (match-end 0)
+                         'type 'my-vterm-file-link
+                         'my-file file
+                         'my-line line
+                         'my-col col)))))))
 
 
 ;;;; ---------------------------------------------------------------
