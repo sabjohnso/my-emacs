@@ -7,8 +7,10 @@
 ;; - Flickering from unsupported DEC Mode 2026 (synchronized output)
 ;; - Broken copy-mode navigation (fake newlines, invisible cursor)
 ;; - No notification when Claude finishes
-;; - C-g not mapped to ESC (Claude's cancel)
+;; - C-c C-c mapped to ESC (Claude's cancel/interrupt)
 ;; - Unnecessary terminal reflows on vertical-only resizes
+;; - Suggestion text invisible (SGR 2 dim not supported by libvterm)
+;; - No cursor cue when buffer is unfocused or in copy-mode
 ;;
 ;; Techniques cherry-picked from claude-code.el and claudemacs.
 
@@ -20,6 +22,17 @@
 (declare-function vterm-send-string "vterm")
 (declare-function vterm-send-key "vterm")
 (declare-function vterm--filter "vterm")
+
+(defface my-claude-suggestion
+  '((((background dark))  :foreground "#808080" :slant italic)
+    (((background light)) :foreground "#999999" :slant italic)
+    (t                     :slant italic))
+  "Face for Claude Code suggestion/ghost text.
+Claude Code sends SGR 2 (dim) for inline suggestions, but
+libvterm does not support the dim attribute.  This face defines
+the substitute appearance: its foreground color and italic style
+are translated into ANSI escapes that vterm can render."
+  :group 'my-claude-vterm)
 
 
 ;;;; ---------------------------------------------------------------
@@ -66,7 +79,7 @@ Must be called after `vterm-mode' has been activated."
 
   ;; -- Cursor fix --
   (setq-local cursor-type nil)
-  (setq-local cursor-in-non-selected-windows nil)
+  (setq-local cursor-in-non-selected-windows 'hollow)
 
   ;; -- Scroll stabilization --
   (setq-local scroll-conservatively 10000)
@@ -111,6 +124,40 @@ Must be called after `vterm-mode' has been activated."
 
 (defvar-local my--vterm-notify-timer nil
   "Debounce timer for desktop notifications.")
+
+(defvar-local my--vterm-dim-escape nil
+  "Cached ANSI escape string replacing SGR 2 (dim) in this buffer.
+Computed lazily from the `my-claude-suggestion' face.")
+
+
+;;;; ---------------------------------------------------------------
+;;;; SGR 2 (dim) translation
+;;;; ---------------------------------------------------------------
+
+(defun my--vterm-compute-dim-escape ()
+  "Return an ANSI escape approximating SGR 2 (dim).
+Derives the foreground color from `my-claude-suggestion' and adds
+italic (SGR 3).  Uses 24-bit true-color escapes."
+  (let* ((fg  (face-foreground 'my-claude-suggestion nil t))
+         (rgb (when fg (color-values fg)))
+         (r   (if rgb (/ (nth 0 rgb) 256) 128))
+         (g   (if rgb (/ (nth 1 rgb) 256) 128))
+         (b   (if rgb (/ (nth 2 rgb) 256) 128)))
+    (format "\033[3;38;2;%d;%d;%dm" r g b)))
+
+(defun my--vterm-translate-dim (output)
+  "Replace SGR 2 (dim) escapes in OUTPUT with italic + face color.
+libvterm silently discards SGR 2, so Claude Code suggestion text
+appears identical to user input.  This substitutes a visible
+approximation derived from `my-claude-suggestion'."
+  (when (string-match-p "\033\\[0?2m" output)
+    (unless my--vterm-dim-escape
+      (setq my--vterm-dim-escape (my--vterm-compute-dim-escape)))
+    (setq output
+          (replace-regexp-in-string
+           "\033\\[0?2m" my--vterm-dim-escape output t t)))
+  output)
+
 
 (defconst my--vterm-redraw-pattern
   "\033\\[[0-9]*;[0-9]*H\\|\033\\[[0-9]*K\\|\033\\[?25[lh]"
@@ -161,6 +208,8 @@ Also detects BEL character for notifications."
   (let ((buf (process-buffer proc)))
     (when (buffer-live-p buf)
       (with-current-buffer buf
+        ;; Translate unsupported SGR 2 (dim) to visible attributes
+        (setq output (my--vterm-translate-dim output))
         ;; Bell detection
         (when (string-match-p "\a" output)
           (my--llm-vterm-notify buf))
@@ -235,7 +284,7 @@ Intended for `kill-buffer-hook'."
   "Toggle cursor visibility when entering/leaving vterm copy mode."
   (if vterm-copy-mode
       (progn
-        (setq-local cursor-type 'box)
+        (setq-local cursor-type 'hollow)
         (my--llm-vterm-buttonize-files)
         ;; Override vterm-copy-mode-map's RET via minor-mode-overriding-map-alist
         ;; (minor mode maps outrank the local map, so use-local-map can't win)
@@ -392,7 +441,7 @@ Only forward the resize when the width has actually changed."
 ;;;; ---------------------------------------------------------------
 
 (defun my--vterm-send-escape ()
-  "Send ESC to the terminal process (maps C-g to Claude's cancel)."
+  "Send ESC to the terminal process (maps C-c C-c to Claude's cancel)."
   (interactive)
   (vterm-send-key "<escape>"))
 
@@ -401,7 +450,7 @@ Only forward the resize when the width has actually changed."
 Preserves the existing vterm keymap as parent."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map (current-local-map))
-    (define-key map (kbd "C-g") #'my--vterm-send-escape)
+    (define-key map (kbd "C-c C-c") #'my--vterm-send-escape)
     (define-key map (kbd "<f5>") #'compile)
     (use-local-map map)))
 
