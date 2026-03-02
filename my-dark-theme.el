@@ -301,6 +301,20 @@
    `(comint-highlight-input ((t (:weight bold))))
    `(sh-heredoc ((t (:foreground ,(funcall p 'string)))))
 
+   ;; ---- Eshell ----
+   `(eshell-prompt ((t (:foreground ,(funcall p 'minibuffer-prompt) :weight bold))))
+   `(eshell-ls-directory ((t (:foreground ,(funcall p 'dired-directory) :weight bold))))
+   `(eshell-ls-symlink ((t (:foreground ,(funcall p 'dired-symlink)))))
+   `(eshell-ls-executable ((t (:foreground ,(funcall p 'ansi-green) :weight bold))))
+   `(eshell-ls-archive ((t (:foreground ,(funcall p 'ansi-red) :weight bold))))
+   `(eshell-ls-backup ((t (:foreground ,(funcall p 'fg-alt)))))
+   `(eshell-ls-product ((t (:foreground ,(funcall p 'fg-alt)))))
+   `(eshell-ls-readonly ((t (:foreground ,(funcall p 'ansi-yellow)))))
+   `(eshell-ls-missing ((t (:foreground ,(funcall p 'error) :strike-through t))))
+   `(eshell-ls-special ((t (:foreground ,(funcall p 'ansi-magenta)))))
+   `(eshell-ls-clutter ((t (:foreground ,(funcall p 'fg-alt) :slant italic))))
+   `(eshell-ls-unreadable ((t (:foreground ,(funcall p 'fg-alt) :slant italic))))
+
    ;; ---- Line Numbers ----
    `(line-number ((t (:foreground ,(funcall p 'line-number) :background ,(funcall p 'bg-alt)))))
    `(line-number-current-line ((t (:foreground ,(funcall p 'line-number-current) :background ,(funcall p 'bg-hl-line) :weight bold))))

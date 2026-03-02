@@ -586,5 +586,36 @@
         (should (my-theme-test--face-themed-p face 'my-tron)))
     (disable-theme 'my-tron)))
 
+;;; --- Eshell face existence tests ---
+
+(defvar my-theme-test--eshell-faces
+  '(eshell-prompt
+    eshell-ls-directory
+    eshell-ls-symlink
+    eshell-ls-executable
+    eshell-ls-archive
+    eshell-ls-backup
+    eshell-ls-product
+    eshell-ls-readonly
+    eshell-ls-missing
+    eshell-ls-special
+    eshell-ls-clutter
+    eshell-ls-unreadable)
+  "All eshell faces that every theme must define.")
+
+(defvar my-theme-test--all-theme-names
+  '(my-light my-dark my-light-256 my-dark-256
+    my-solarized-dark my-gruvbox-dark my-dracula my-nord my-crt my-tron)
+  "All theme names for cross-cutting tests.")
+
+(ert-deftest my-theme-all-define-eshell-faces ()
+  "Every theme defines all eshell faces."
+  (dolist (theme my-theme-test--all-theme-names)
+    (load-theme theme t)
+    (unwind-protect
+        (dolist (face my-theme-test--eshell-faces)
+          (should (my-theme-test--face-themed-p face theme)))
+      (disable-theme theme))))
+
 (provide 'test-my-themes)
 ;;; test-my-themes.el ends here
