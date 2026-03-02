@@ -420,20 +420,23 @@ Used to suppress resize signals when only the height changed.")
 (defun my--vterm-resize-advice (orig-fn &rest args)
   "Around advice for `vterm--window-adjust-process-window-size'.
 Only forward the resize when the width has actually changed."
-  (let* ((result (apply orig-fn args))
-         (buf (current-buffer))
-         (new-width (when result (car result))))
-    (when (and new-width (buffer-local-value 'my--vterm-cached-width buf))
-      (if (= new-width (buffer-local-value 'my--vterm-cached-width buf))
-          nil  ; suppress — height-only change
-        (with-current-buffer buf
-          (setq my--vterm-cached-width new-width))
-        result))
-    (when (and new-width
-               (null (buffer-local-value 'my--vterm-cached-width buf)))
-      (with-current-buffer buf
-        (setq my--vterm-cached-width new-width))
-      result)))
+  (let* ((result   (apply orig-fn args))
+         (buf      (current-buffer))
+         (new-width (when result (car result)))
+         (cached   (buffer-local-value 'my--vterm-cached-width buf)))
+    (cond
+     ;; No dimensions — pass through.
+     ((null new-width) result)
+     ;; First call — initialize cache and pass through.
+     ((null cached)
+      (with-current-buffer buf (setq my--vterm-cached-width new-width))
+      result)
+     ;; Width unchanged — height-only resize, suppress.
+     ((= new-width cached) nil)
+     ;; Width changed — update cache and pass through.
+     (t
+      (with-current-buffer buf (setq my--vterm-cached-width new-width))
+      result))))
 
 
 ;;;; ---------------------------------------------------------------
