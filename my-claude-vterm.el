@@ -53,24 +53,115 @@ are translated into ANSI escapes that vterm can render."
 
 
 ;;;; ---------------------------------------------------------------
+;;;; Server management
+;;;; ---------------------------------------------------------------
+
+(defun my--claude-server-name ()
+  "Return a unique server name for this Emacs instance.
+Format: claude-<directory>-<pid>, where <directory> is the
+`default-directory' basename and <pid> is `emacs-pid'."
+  (let ((dir-name (file-name-nondirectory
+                   (directory-file-name default-directory))))
+    (format "claude-%s-%d" dir-name (emacs-pid))))
+
+(defun my--claude-pid-alive-p (pid)
+  "Return non-nil if PID is a running process.
+Checks for /proc/<pid> existence (Linux)."
+  (file-directory-p (format "/proc/%d" pid)))
+
+(defun my--claude-stale-sockets (project-dir)
+  "Return alist of stale server sockets for PROJECT-DIR.
+Each element is (SOCKET-NAME . PID).  A socket is stale when its
+name matches claude-<PROJECT-DIR>-<pid> but the PID differs from
+the current Emacs process."
+  (let ((pattern (format "^claude-%s-\\([0-9]+\\)$"
+                         (regexp-quote project-dir)))
+        (my-pid (emacs-pid))
+        result)
+    (when (and (boundp 'server-socket-dir)
+               server-socket-dir
+               (file-directory-p server-socket-dir))
+      (dolist (file (directory-files server-socket-dir nil pattern))
+        (when (string-match pattern file)
+          (let ((pid (string-to-number (match-string 1 file))))
+            (unless (= pid my-pid)
+              (push (cons file pid) result))))))
+    (nreverse result)))
+
+(defun my--claude-clean-stale-sockets (project-dir)
+  "Remove stale server sockets for PROJECT-DIR.
+Dead PIDs are silently cleaned up.  Live PIDs prompt the user
+with `y-or-n-p' before attempting `server-force-delete' via
+emacsclient."
+  (dolist (entry (my--claude-stale-sockets project-dir))
+    (let ((socket-name (car entry))
+          (pid         (cdr entry)))
+      (if (not (my--claude-pid-alive-p pid))
+          ;; Dead PID — silently remove the stale socket
+          (let ((socket-path (expand-file-name socket-name
+                                               server-socket-dir)))
+            (when (file-exists-p socket-path)
+              (delete-file socket-path)))
+        ;; Live PID — warn and offer to kill
+        (display-warning
+         'my-claude-vterm
+         (format "Found existing server %s (PID %d)" socket-name pid))
+        (when (y-or-n-p
+               (format "Kill stale server %s (PID %d)? " socket-name pid))
+          (ignore-errors
+            (call-process "emacsclient" nil nil nil
+                          "-s" socket-name
+                          "--eval" "(server-force-delete)")))))))
+
+(defun my--claude-ensure-server ()
+  "Ensure an Emacs server is running and return its name.
+If `server-process' is already non-nil, return the existing
+`server-name' without disruption.  Otherwise, clean stale
+sockets, set `server-name', and call `server-start'."
+  (require 'server)
+  (if server-process
+      server-name
+    (let* ((dir-name (file-name-nondirectory
+                      (directory-file-name default-directory)))
+           (name     (my--claude-server-name)))
+      (my--claude-clean-stale-sockets dir-name)
+      (setq server-name name)
+      (server-start)
+      name)))
+
+(defun my--claude-make-command (command server-name)
+  "Return COMMAND prefixed with EMACS_SOCKET_NAME=SERVER-NAME.
+EMACS_SOCKET_NAME is the standard Emacs variable that emacsclient
+uses for socket discovery, so hook scripts calling emacsclient
+will find the correct server automatically."
+  (format "EMACS_SOCKET_NAME=%s %s"
+          (shell-quote-argument server-name)
+          command))
+
+
+;;;; ---------------------------------------------------------------
 ;;;; Buffer setup
 ;;;; ---------------------------------------------------------------
 
 (defun my--run-llm-in-vterm (command)
   "Run COMMAND in a vterm buffer named *COMMAND-<directory>*.
 Create the buffer if it does not exist, then apply all vterm
-configuration via `my--llm-vterm-configure'."
+configuration via `my--llm-vterm-configure'.
+Ensures an Emacs server is running so Claude Code hooks can call
+back via emacsclient."
   (require 'vterm)
   (let* ((dir-name (file-name-nondirectory
                     (directory-file-name default-directory)))
          (buf-name (format "*%s-%s*" command dir-name)))
     (if (get-buffer buf-name)
         (pop-to-buffer buf-name)
-      (let ((buf (generate-new-buffer buf-name)))
+      (let* ((server    (my--claude-ensure-server))
+             (shell-cmd (my--claude-make-command command server))
+             (buf       (generate-new-buffer buf-name)))
         (with-current-buffer buf
           (vterm-mode)
           (my--llm-vterm-configure)
-          (vterm-send-string (concat command "\n")))
+          (vterm-send-string (concat shell-cmd "\n")))
         (pop-to-buffer buf)))))
 
 (defun my--llm-vterm-configure ()

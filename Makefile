@@ -22,7 +22,7 @@ BATCH_FULL = $(BATCH) \
 
 COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el
 
-.PHONY: all compile test test-themes test-gptel
+.PHONY: all compile test test-themes test-gptel test-claude-vterm
 
 all: compile
 
@@ -30,10 +30,13 @@ compile:
 	$(BATCH_FULL) $(patsubst %,-l %,$(COMPILE_FILES)) \
 	  --eval '(batch-byte-compile)' $(COMPILE_FILES)
 
-test: test-themes test-gptel
+test: test-themes test-gptel test-claude-vterm
 
 test-themes:
 	$(BATCH) -l test-my-themes.el -f ert-run-tests-batch-and-exit
 
 test-gptel:
 	$(BATCH_FULL) -l test-my-gptel.el -f ert-run-tests-batch-and-exit
+
+test-claude-vterm:
+	$(BATCH) -l test-my-claude-vterm.el -f ert-run-tests-batch-and-exit
