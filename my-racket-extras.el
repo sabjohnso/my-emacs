@@ -216,6 +216,7 @@
     place-channel-put
     place-channel-get
     place-channel-put/get
+    if/arrow
     Class))
 
 
@@ -277,6 +278,17 @@
 
 (defun my-racket-infix-operators ()
   '(: <- -<))
+
+(defun my-racket-arrow-builtins ()
+  '(returnA))
+
+(defun my-racket-arrow-builtins-pattern ()
+  (concat "[[([:space:]\n]\\("
+          (regexp-opt (mapcar #'symbol-name (my-racket-arrow-builtins)))
+          "\\)[[:space:]\n)]"))
+
+(defun my-racket-arrow-builtins-rule ()
+  (list (my-racket-arrow-builtins-pattern) 1 'font-lock-builtin-face))
 
 (defun my-racket-infix-pattern ()
   (concat "[[:space:]\n]\\("
@@ -378,7 +390,8 @@
     (my-racket-expanded-rule)
     (my-racket-infix-notation-rule)
     (my-racket-ctype-name-rule)
-    (my-racket-syntax-parse-pattern-keywords-rule)))
+    (my-racket-syntax-parse-pattern-keywords-rule)
+    (my-racket-arrow-builtins-rule)))
   (font-lock-ensure))
 
 (defun my-add-racket-indentation ()
@@ -399,7 +412,8 @@
   (put 'let/monad 'scheme-indent-function 1)
   (put 'lambda/arrow 'scheme-indent-function 1)
   (put 'λ/arrow 'scheme-indent-function 1)
-  (put 'let/arrow 'scheme-indent-function 1)
+  (put 'let/arrow 'scheme-indent-function 2)
+  (put 'if/arrow 'scheme-indent-function 1)
   (put 'match* 'scheme-indent-function 1)
   (put 'process 'scheme-indent-function 1)
   (put 'rename-in 'scheme-indent-function 1)
