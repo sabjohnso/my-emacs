@@ -451,7 +451,9 @@ saving the buffer.")
 	   (c-mode . doxy-graph-mode)
 	   (python-mode . doxy-graph-mode)))
 
-(use-package highlight-doxygen :ensure t :hook (c++-mode . highlight-doxygen-mode))
+(use-package highlight-doxygen :ensure t
+  ;; :hook (c++-mode . highlight-doxygen-mode)
+  )
 (with-eval-after-load 'cc-mode
   (require 'cc-styles)
   (add-to-list
