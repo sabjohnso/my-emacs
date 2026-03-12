@@ -21,11 +21,31 @@
 ;; ... Org
 ;;
 
+(defface my-org-active
+  '((t (:foreground "#0077CC" :weight bold)))
+  "Face for the ACTIVE org-todo keyword."
+  :group 'org-faces)
+
+(defface my-org-waiting
+  '((t (:foreground "#FF8C00" :weight bold)))
+  "Face for the WAITING org-todo keyword."
+  :group 'org-faces)
+
+(defface my-org-cancelled
+  '((t (:foreground "#999999" :weight bold :strike-through t)))
+  "Face for the CANCELLED org-todo keyword."
+  :group 'org-faces)
+
 ;; (add-to-list 'load-path (expand-file-name "~/Sandbox/org-mode/lisp"))
 (use-package org
   :defer t
+  :custom
+  (org-todo-keywords '((sequence "TODO" "ACTIVE" "WAITING" "|" "DONE" "CANCELLED")))
+  (org-todo-keyword-faces
+   '(("ACTIVE"    . my-org-active)
+     ("WAITING"   . my-org-waiting)
+     ("CANCELLED" . my-org-cancelled)))
   :hook (org-mode . (lambda ()
-                      (read-only-mode)
                       (auto-revert-mode)
                       (auto-fill-mode))))
 
