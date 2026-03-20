@@ -16,7 +16,11 @@
 
 (require 'cl-lib)
 
-(use-package vterm :ensure t :commands (vterm vterm-mode))
+(use-package vterm
+  :ensure t
+  :commands (vterm vterm-mode)
+  :bind (:map vterm-mode-map
+         ("<f5>" . compile)))
 
 (declare-function vterm-mode "vterm")
 (declare-function vterm-send-string "vterm")
