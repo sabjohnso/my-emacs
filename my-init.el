@@ -386,6 +386,19 @@ saving the buffer.")
 	    (local-set-key (kbd "C-a") 'move-beginning-of-line)
 	    (local-set-key (kbd "<f12>") 'geiser-repl-clear-buffer)))
 
+;; Fix: geiser-repl--input-filter uses line-anchored "^\\s *$" to
+;; reject whitespace-only input, but this also rejects any multi-line
+;; input containing a blank line.  Use string-anchored "\\`\\s *\\'"
+;; instead.  See GeiserBug.org for upstream report details.
+(defun my/geiser-repl--input-filter (str)
+  "Fixed input filter that correctly handles multi-line input."
+  (not (or (and (not geiser-repl-save-debugging-history-p)
+                (geiser-repl--is-debugging))
+           (string-match "\\`\\s *\\'" str)
+           (string-match "^,quit *$" str))))
+
+(advice-add 'geiser-repl--input-filter :override #'my/geiser-repl--input-filter)
+
 
 ;; paredit
 (use-package paredit

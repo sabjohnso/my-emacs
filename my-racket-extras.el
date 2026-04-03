@@ -79,6 +79,8 @@
     define-simple-macro
     define-syntax-parameter
     define-gcc-jit
+    define-llvm-module
+    define-record
     union
     protocol
     def
@@ -458,7 +460,8 @@
   (put 'type 'scheme-indent-function 1)
   (put 'signature 'scheme-indent-function 1)
   (put 'record 'scheme-indent-function 1)
-  (put 'define-syntax-parameter 'scheme-indent-function 1))
+  (put 'define-syntax-parameter 'scheme-indent-function 1)
+  (put 'call 'scheme-indent-function 2))
 
 (add-hook 'scheme-mode-hook 'my-add-racket-highlights)
 (add-hook 'scheme-mode-hook 'my-add-racket-indentation)
