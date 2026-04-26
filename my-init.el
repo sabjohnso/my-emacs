@@ -152,7 +152,8 @@ height of the font.")
 ;; (add-hook 'after-make-frame-functions #'my-adapt-font-size)
 
 (with-eval-after-load 'compile
-  (setq compilation-environment '("TERM=xterm-256color")))
+  (setq compilation-environment '("TERM=xterm-256color"))
+  (setq compilation-max-output-line-length nil))
 
 
 (use-package ansi-color
