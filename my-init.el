@@ -225,6 +225,7 @@ saving the buffer.")
 
 
 (add-to-list 'auto-mode-alist '("\\.cheat\\'" . shell-script-mode))
+(add-to-list 'auto-mode-alist '("\\.ino\\'" . c++-mode))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
