@@ -89,7 +89,11 @@
     type
     signature
     record
-    Instance))
+    Instance
+    ;; rackton
+    define-instance
+    define-class
+    define-data))
 
 
 (defun my-racket-extras-module-introducers ()
@@ -107,7 +111,8 @@
     test-case
     test-begin
     thread
-    thread-run))
+    thread-run
+    rackton))
 
 (defun my-racket-let-introducers ()
   "Return a list of Racket let binding introducers"
