@@ -20,7 +20,7 @@ BATCH_FULL = $(BATCH) \
   -L $(PCRE2EL_DIR) \
   $(PKG_INIT)
 
-COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el
+COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el my-granule-mode.el
 
 .PHONY: all compile test test-themes test-gptel test-claude-vterm
 
