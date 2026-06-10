@@ -91,9 +91,10 @@
     record
     Instance
     ;; rackton
-    define-instance
-    define-class
-    define-data))
+    instance
+    protocol
+    data
+    newtype))
 
 
 (defun my-racket-extras-module-introducers ()
@@ -111,8 +112,7 @@
     test-case
     test-begin
     thread
-    thread-run
-    rackton))
+    thread-run))
 
 (defun my-racket-let-introducers ()
   "Return a list of Racket let binding introducers"
@@ -156,7 +156,11 @@
     call-with-output-file
     call-with-output-file*
     with-output-to-file
-    call-with))
+    call-with
+    proc
+    let%
+    let&
+    let+))
 
 (defun my-racket-require-spec-introducers ()
   "Return a list of Racket require spec introducers"
@@ -224,7 +228,10 @@
     place-channel-get
     place-channel-put/get
     if/arrow
-    Class))
+    Class
+    rackton
+    racket
+    feed))
 
 
 
@@ -466,7 +473,16 @@
   (put 'signature 'scheme-indent-function 1)
   (put 'record 'scheme-indent-function 1)
   (put 'define-syntax-parameter 'scheme-indent-function 1)
-  (put 'call 'scheme-indent-function 2))
+  (put 'call 'scheme-indent-function 2)
+  (put 'protocol 'scheme-indent-function 1)
+  (put 'data 'scheme-indent-function 1)
+  (put 'instance 'scheme-indent-function 1)
+  (put 'racket 'scheme-indent-function 0)
+  (put 'rackton 'scheme-indent-function 0)
+  (put 'proc 'scheme-indent-function 2)
+  (put 'let+ 'scheme-indent-function 1)
+  (put 'let& 'scheme-indent-function 1)
+  (put 'let% 'scheme-indent-function 1))
 
 (add-hook 'scheme-mode-hook 'my-add-racket-highlights)
 (add-hook 'scheme-mode-hook 'my-add-racket-indentation)
