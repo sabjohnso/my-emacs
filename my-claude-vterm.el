@@ -187,7 +187,7 @@ Must be called after `vterm-mode' has been activated."
   (setq-local my--vterm-output-buffer "")
   (setq-local my--vterm-flush-timer nil)
   (setq-local my--vterm-notify-timer nil)
-  (setq-local my--vterm-cached-width nil)
+  (setq-local my--vterm-cached-size nil)
 
   ;; -- Copy-mode: keep fake (wrap) newlines so copied text preserves
   ;; the on-screen line breaks instead of collapsing wrapped
@@ -569,29 +569,33 @@ Only creates buttons for files that exist on disk."
 ;;;; Resize optimization
 ;;;; ---------------------------------------------------------------
 
-(defvar-local my--vterm-cached-width nil
-  "Cached terminal width for this buffer.
-Used to suppress resize signals when only the height changed.")
+(defvar-local my--vterm-cached-size nil
+  "Cached (WIDTH . HEIGHT) last reported to the pty for this buffer.
+Used to suppress a resize signal only when nothing changed.")
 
 (defun my--vterm-resize-advice (orig-fn &rest args)
   "Around advice for `vterm--window-adjust-process-window-size'.
-Only forward the resize when the width has actually changed."
-  (let* ((result   (apply orig-fn args))
-         (buf      (current-buffer))
-         (new-width (when result (car result)))
-         (cached   (buffer-local-value 'my--vterm-cached-width buf)))
+Forward the resize whenever the width OR height changed, so a
+height-sensitive TUI (such as Claude Code) is never left with a
+stale terminal size.  Only a genuine no-op resize (both dimensions
+unchanged) is suppressed.
+
+Returning nil skips `set-process-window-size', which is what
+updates the kernel pty window size and delivers SIGWINCH; a
+height-only change must therefore be forwarded, otherwise the
+child process keeps rendering to the old row count and misplaces
+its cursor and input line."
+  (let* ((result (apply orig-fn args))
+         (buf    (current-buffer))
+         (cached (buffer-local-value 'my--vterm-cached-size buf)))
     (cond
      ;; No dimensions — pass through.
-     ((null new-width) result)
-     ;; First call — initialize cache and pass through.
-     ((null cached)
-      (with-current-buffer buf (setq my--vterm-cached-width new-width))
-      result)
-     ;; Width unchanged — height-only resize, suppress.
-     ((= new-width cached) nil)
-     ;; Width changed — update cache and pass through.
+     ((null result) result)
+     ;; Nothing changed — suppress the redundant resize.
+     ((equal result cached) nil)
+     ;; Width or height changed — update cache and pass through.
      (t
-      (with-current-buffer buf (setq my--vterm-cached-width new-width))
+      (with-current-buffer buf (setq my--vterm-cached-size result))
       result))))
 
 
