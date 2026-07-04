@@ -250,6 +250,7 @@ saving the buffer.")
 (use-package flycheck-projectile :ensure t :pin melpa :after (flycheck projectile))
 (use-package lsp-mode :ensure t :pin melpa :commands lsp)
 (use-package lsp-ui :ensure t :pin melpa :after lsp-mode)
+(use-package dape :ensure t :pin gnu :commands dape) ;; Debug Adapter Protocol client
 (use-package magit :ensure t :pin melpa :commands (magit-status magit-dispatch))
 (use-package git-modes :ensure t :pin melpa :defer t)
 (use-package projectile
