@@ -189,9 +189,16 @@ Must be called after `vterm-mode' has been activated."
   (setq-local my--vterm-notify-timer nil)
   (setq-local my--vterm-cached-width nil)
 
-  ;; -- Copy-mode: strip fake newlines for isearch --
+  ;; -- Copy-mode: keep fake (wrap) newlines so copied text preserves
+  ;; the on-screen line breaks instead of collapsing wrapped
+  ;; paragraphs into one long line.  (Trade-off: isearch will not
+  ;; match a phrase that straddles a wrap point.)
   (when (boundp 'vterm-copy-mode-remove-fake-newlines)
-    (setq-local vterm-copy-mode-remove-fake-newlines t))
+    (setq-local vterm-copy-mode-remove-fake-newlines nil))
+
+  ;; -- Copy: strip Claude's left gutter from killed text --
+  (setq-local filter-buffer-substring-function
+              #'my--vterm-filter-buffer-substring)
 
   ;; -- Display table: replace U+23FA (⏺) with ✽ --
   (my--llm-vterm-setup-display-table)
@@ -394,6 +401,60 @@ Intended for `kill-buffer-hook'."
       (setq-local minor-mode-overriding-map-alist nil)
       ;; Restore our keymap — vterm replaces the local map on copy-mode exit
       (my--llm-vterm-setup-keymap))))
+
+
+;;;; ---------------------------------------------------------------
+;;;; Copy dedent (strip Claude's left gutter)
+;;;; ---------------------------------------------------------------
+
+(defun my--vterm-line-indent (line)
+  "Return the count of leading space characters in LINE."
+  (if (string-match "\\`[ ]*" line) (match-end 0) 0))
+
+(defun my--vterm-blank-line-p (line)
+  "Return non-nil if LINE contains only whitespace."
+  (string-match-p "\\`[ \t]*\\'" line))
+
+(defun my--vterm-common-indent (lines)
+  "Return the smallest leading-space indent among the non-blank LINES.
+Blank lines are ignored so they cannot force the result to zero.
+Returns 0 when every line is blank."
+  (let ((indents (delq nil
+                       (mapcar (lambda (l)
+                                 (unless (my--vterm-blank-line-p l)
+                                   (my--vterm-line-indent l)))
+                               lines))))
+    (if indents (apply #'min indents) 0)))
+
+(defun my--vterm-dedent (text)
+  "Remove the indentation common to every non-blank line of TEXT.
+This strips Claude Code's fixed left gutter while preserving the
+relative indentation of the content (for example, code blocks).
+Text properties on TEXT are preserved."
+  (let* ((lines  (split-string text "\n"))
+         (common (my--vterm-common-indent lines)))
+    (if (zerop common)
+        text
+      (mapconcat
+       (lambda (l)
+         (substring l (min common (my--vterm-line-indent l))))
+       lines "\n"))))
+
+(defun my--vterm-trim-trailing (text)
+  "Remove trailing space and tab characters from every line of TEXT.
+Claude Code pads each row out to the full terminal width with
+spaces; this drops that padding.  Text properties on the retained
+portions are preserved."
+  (replace-regexp-in-string "[ \t]+$" "" text))
+
+(defun my--vterm-filter-buffer-substring (beg end &optional delete)
+  "Buffer-local `filter-buffer-substring-function' for LLM vterm buffers.
+Delegate to the standard filter, then dedent the result so copied
+text does not carry Claude's left gutter, and drop the trailing
+whitespace Claude uses to pad rows.  BEG, END and DELETE have the
+same meaning as in `filter-buffer-substring'."
+  (my--vterm-trim-trailing
+   (my--vterm-dedent (buffer-substring--filter beg end delete))))
 
 
 ;;;; ---------------------------------------------------------------
