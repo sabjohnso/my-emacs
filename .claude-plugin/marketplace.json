@@ -1,0 +1,15 @@
+{
+  "name": "my-emacs",
+  "owner": {
+    "name": "Samuel Bryant Johnson",
+    "email": "samuel.bryant.johnson@gmail.com"
+  },
+  "description": "Claude Code plugin for working in this personal Emacs config repo.",
+  "plugins": [
+    {
+      "name": "emacs-interaction",
+      "source": "./",
+      "description": "Claude Code tooling for working in this Emacs config repo: reloading edited elisp into the live session, driving Emacs via emacsclient, running the ERT test suites, and reviewing elisp and GPTel-tool conventions."
+    }
+  ]
+}
