@@ -128,6 +128,36 @@
         (server-name "existing-server"))
     (should (string= (my--claude-ensure-server) "existing-server"))))
 
+;;; --- my--llm-resume-args ---
+
+(ert-deftest my-llm-resume-args-claude ()
+  "Claude resumes its most recent session with --continue."
+  (should (equal (my--llm-resume-args "claude") '("--continue"))))
+
+(ert-deftest my-llm-resume-args-codex ()
+  "Codex resumes its most recent session with resume --last."
+  (should (equal (my--llm-resume-args "codex") '("resume" "--last"))))
+
+(ert-deftest my-llm-resume-args-unknown-command ()
+  "An unrecognized command has no resume arguments."
+  (should (null (my--llm-resume-args "foo"))))
+
+;;; --- my--llm-vterm-full-command ---
+
+(ert-deftest my-llm-vterm-full-command-no-extra-args ()
+  "With no extra args, the full command is just the command itself."
+  (should (string= (my--llm-vterm-full-command "claude" nil) "claude")))
+
+(ert-deftest my-llm-vterm-full-command-single-extra-arg ()
+  "A single extra arg is appended with a space."
+  (should (string= (my--llm-vterm-full-command "claude" '("--continue"))
+                   "claude --continue")))
+
+(ert-deftest my-llm-vterm-full-command-multiple-extra-args ()
+  "Multiple extra args are each appended with a space."
+  (should (string= (my--llm-vterm-full-command "codex" '("resume" "--last"))
+                   "codex resume --last")))
+
 ;;; --- Integration: server name is deterministic ---
 
 (ert-deftest my-claude-server-name-deterministic ()

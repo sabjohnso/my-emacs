@@ -38,6 +38,25 @@ the substitute appearance: its foreground color and italic style
 are translated into ANSI escapes that vterm can render."
   :group 'my-claude-vterm)
 
+(defvar-local my--llm-vterm-command nil
+  "The base command (e.g. \"claude\" or \"codex\") running in this buffer.
+Set when the buffer is created; used by `my-claude-restart' to
+relaunch the correct command.")
+
+(defconst my--llm-resume-args-alist
+  '(("claude" . ("--continue"))
+    ("codex"  . ("resume" "--last")))
+  "Alist mapping an LLM command name to the CLI arguments that
+resume its most recent session for the current directory.")
+
+(defun my--llm-resume-args (command)
+  "Return the resume arguments for COMMAND, or nil if COMMAND is unknown."
+  (cdr (assoc command my--llm-resume-args-alist)))
+
+(defun my--llm-vterm-full-command (command extra-args)
+  "Return the shell command string for COMMAND with EXTRA-ARGS appended."
+  (mapconcat #'identity (cons command extra-args) " "))
+
 
 ;;;; ---------------------------------------------------------------
 ;;;; Public API
@@ -54,6 +73,28 @@ are translated into ANSI escapes that vterm can render."
   "Run Codex in a vterm buffer named *codex-<directory>*."
   (interactive)
   (my--run-llm-in-vterm "codex"))
+
+;;;###autoload
+(defun my-claude-restart ()
+  "Restart the LLM running in the current vterm buffer.
+Kills the running process and buffer, then starts a fresh process
+with the same command in the same directory and buffer name,
+resuming the most recent conversation for that directory (see
+`my--llm-resume-args-alist' for the resume arguments used per
+command)."
+  (interactive)
+  (unless my--llm-vterm-command
+    (user-error "Not a Claude/Codex vterm buffer"))
+  (let* ((command   my--llm-vterm-command)
+         (buf-name  (buffer-name))
+         (dir       default-directory)
+         (proc      (get-buffer-process (current-buffer))))
+    (when proc
+      (set-process-query-on-exit-flag proc nil))
+    (kill-buffer)
+    (let ((default-directory dir))
+      (my--llm-vterm-create-buffer
+       buf-name command (my--llm-resume-args command)))))
 
 
 ;;;; ---------------------------------------------------------------
@@ -159,14 +200,24 @@ back via emacsclient."
          (buf-name (format "*%s-%s*" command dir-name)))
     (if (get-buffer buf-name)
         (pop-to-buffer buf-name)
-      (let* ((server    (my--claude-ensure-server))
-             (shell-cmd (my--claude-make-command command server))
-             (buf       (generate-new-buffer buf-name)))
-        (with-current-buffer buf
-          (vterm-mode)
-          (my--llm-vterm-configure)
-          (vterm-send-string (concat shell-cmd "\n")))
-        (pop-to-buffer buf)))))
+      (my--llm-vterm-create-buffer buf-name command))))
+
+(defun my--llm-vterm-create-buffer (buf-name command &optional extra-args)
+  "Create and configure a new vterm buffer BUF-NAME running COMMAND.
+EXTRA-ARGS, if non-nil, is a list of extra command-line arguments
+appended to COMMAND (for example, to resume a prior session).
+Uses `default-directory' as the buffer's working directory."
+  (require 'vterm)
+  (let* ((server       (my--claude-ensure-server))
+         (full-command (my--llm-vterm-full-command command extra-args))
+         (shell-cmd    (my--claude-make-command full-command server))
+         (buf          (generate-new-buffer buf-name)))
+    (with-current-buffer buf
+      (vterm-mode)
+      (setq-local my--llm-vterm-command command)
+      (my--llm-vterm-configure)
+      (vterm-send-string (concat shell-cmd "\n")))
+    (pop-to-buffer buf)))
 
 (defun my--llm-vterm-configure ()
   "Apply all Claude-specific vterm settings to the current buffer.
