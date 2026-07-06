@@ -1,7 +1,7 @@
 {
   "name": "emacs-interaction",
-  "description": "Claude Code tooling for working in this Emacs config repo: reloading edited elisp into the live session, driving Emacs via emacsclient, running the ERT test suites, and reviewing elisp and GPTel-tool conventions.",
-  "version": "0.1.0",
+  "description": "Claude Code tooling for working in this Emacs config repo: reloading edited elisp into the live session, driving Emacs via emacsclient, running the ERT test suites, reviewing elisp and GPTel-tool conventions, and maintaining a project's PLAN.org/ISSUES.org planning files.",
+  "version": "0.2.0",
   "author": {
     "name": "Samuel Bryant Johnson",
     "email": "samuel.bryant.johnson@gmail.com"
