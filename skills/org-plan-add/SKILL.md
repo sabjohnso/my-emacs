@@ -10,6 +10,15 @@ Goal: record a new epic, feature, or task in `PLAN.org` at the right depth,
 following the file's fixed conventions, without disturbing existing
 headings.
 
+## Backlog-only rule
+
+`PLAN.org` is a backlog, not a design document. A heading carries a TODO
+keyword, a title, optional tags, and a `:PROPERTIES:` drawer — and **no
+body prose**. Do not write a paragraph explaining the objective under a
+heading; the rationale for a piece of work lives in the linked issue's
+`** Description` in `ISSUES.org`. If a task can't be understood from its
+title alone, that's a sign it needs an issue, not a plan comment.
+
 ## Preconditions
 
 If `PLAN.org` doesn't exist yet at the project root, run the
@@ -59,6 +68,11 @@ New headings always start in the `TODO` state (or `TODO`-equivalent depth-1
 "open" state) — do not backdate a heading to `DONE`/`IN-PROGRESS` on
 creation. A theme tag is optional; apply it only if the caller specified
 one, as an ordinary org tag at the end of the headline.
+
+This skill does **not** add a `:CLOSES:` link tying a node to an issue —
+that cross-link is written by the `org-issue-plan` skill when an issue's fix
+is accepted. Use this skill for plain backlog headings that stand on their
+own; use `org-issue-plan` when the work exists to resolve a logged issue.
 
 ## Steps
 
