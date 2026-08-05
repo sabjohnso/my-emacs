@@ -151,7 +151,7 @@ an argument holding whitespace or a shell metacharacter would be
 split or interpreted there."
   (pcase-dolist (`(,_ . ,args) my--llm-resume-args-alist)
     (dolist (arg args)
-      (should (string-match-p "\\`[-a-zA-Z0-9_./=]+\\'" arg)))))
+      (should (equal (shell-quote-argument arg) arg)))))
 
 ;;; --- my--llm-vterm-full-command ---
 
@@ -202,6 +202,13 @@ in the order they were sent."
   "The default follows Claude Code's own default for `chat:killAgents'."
   (should (equal (default-value 'my-claude-kill-agents-chord) "C-x C-k")))
 
+(ert-deftest my-claude-kill-agents-chord-rejects-a-non-key ()
+  "Customization refuses a string that is not a key description."
+  (let ((type (widget-convert
+               (get 'my-claude-kill-agents-chord 'custom-type))))
+    (should (widget-apply type :match "C-x C-k"))
+    (should-not (widget-apply type :match "ctrl-x"))))
+
 ;;; --- my--llm-vterm-key-description-p ---
 
 (ert-deftest my-llm-vterm-key-description-p-accepts-canonical-keys ()
@@ -214,6 +221,14 @@ in the order they were sent."
   (should-not (my--llm-vterm-key-description-p "ctrl-x"))
   (should-not (my--llm-vterm-key-description-p "C-x C-K"))
   (should-not (my--llm-vterm-key-description-p 5)))
+
+(ert-deftest my-llm-vterm-key-description-p-accepts-what-emacs-prints ()
+  "Whatever `key-description' prints is accepted, so no real key is
+rejected as unsettable."
+  (dolist (event '(?a ?Z ?0 ?\s ?\C-a ?\M-a ?\C-\M-a
+                   f1 f5 return tab backspace home left))
+    (dolist (keys (list (vector event) (vector ?\C-x event)))
+      (should (my--llm-vterm-key-description-p (key-description keys))))))
 
 (ert-deftest my-claude-kill-agents-is-reachable-from-the-keymap ()
   "Pressing C-c C-k forwards the chord, keymap and command together.
@@ -276,6 +291,20 @@ merely made current."
       (customize-set-variable 'my-llm-vterm-key-bindings original)
       (kill-buffer buf))))
 
+(ert-deftest my-llm-vterm-key-bindings-spare-buffers-with-no-local-map ()
+  "A buffer we never touched keeps its empty local map.
+Nil is what `current-local-map' returns there, so it cannot double
+as the record of a keymap we installed."
+  (let ((buf      (generate-new-buffer "*untouched-test*"))
+        (original my-llm-vterm-key-bindings))
+    (unwind-protect
+        (with-current-buffer buf
+          (customize-set-variable 'my-llm-vterm-key-bindings
+                                  '(("C-c C-9" . ignore)))
+          (should (null (current-local-map))))
+      (customize-set-variable 'my-llm-vterm-key-bindings original)
+      (kill-buffer buf))))
+
 (ert-deftest my-llm-vterm-key-bindings-spare-buffers-we-no-longer-own ()
   "A buffer whose local map was replaced by something else is left alone."
   (let ((buf      (generate-new-buffer "*claude-foreign-test*"))
@@ -329,6 +358,22 @@ as the marker for \"nothing recorded yet\"."
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-k"))
                   #'my-claude-kill-agents)))))
 
+(ert-deftest my-llm-vterm-keymap-install-adopts-a-replaced-map ()
+  "A map installed by someone else becomes the base of the next install.
+Otherwise a later install — on vterm's copy-mode exit, say —
+would rebuild over a base map recorded before the replacement and
+silently drop the replacement's bindings."
+  (with-temp-buffer
+    (my--llm-vterm-setup-keymap)
+    (let ((foreign (make-sparse-keymap)))
+      (define-key foreign (kbd "C-c C-t") #'ignore)
+      (use-local-map foreign)
+      (my--llm-vterm-setup-keymap)
+      (should (eq (keymap-parent (current-local-map)) foreign))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-k"))
+                  #'my-claude-kill-agents)))))
+
 (ert-deftest my-llm-vterm-keymap-install-is-idempotent ()
   "A second install replaces our keymap instead of stacking another on it.
 The base map carries a parent of its own, the shape in which a
@@ -343,7 +388,6 @@ stacked install would be hardest to see."
       (my--llm-vterm-setup-keymap)
       (my--llm-vterm-setup-keymap)
       (should (eq (keymap-parent (current-local-map)) parent))
-      (should (eq my--llm-vterm-base-keymap parent))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-r")) #'ignore))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-k"))

@@ -728,20 +728,20 @@ Covers any other key Emacs claims before vterm sees it."
 Nil cannot serve: it is the value `current-local-map' returns in
 a buffer that has no local map.")
 
-(defvar-local my--llm-vterm-base-keymap my--llm-vterm-keymap-unset
-  "The local keymap in effect before ours was first installed here.
-Recorded so that a repeated install replaces our keymap rather
-than nesting a second copy on top of it.")
-
-(defvar-local my--llm-vterm-installed-keymap nil
+(defvar-local my--llm-vterm-installed-keymap my--llm-vterm-keymap-unset
   "The keymap our last install placed in this buffer.
 Identifies the buffers we may reinstall over: one whose local map
 is something else now belongs to whoever replaced it.")
 
+(defvar-local my--llm-vterm-base-keymap nil
+  "The local keymap our installed keymap was built over.
+Meaningful only while `my--llm-vterm-keymap-installed-p' holds:
+once someone else replaces the local map, their map becomes the
+base of our next install.")
+
 (defun my--llm-vterm-keymap-installed-p ()
   "Return non-nil when our keymap is the current buffer's local map."
-  (and my--llm-vterm-installed-keymap
-       (eq (current-local-map) my--llm-vterm-installed-keymap)))
+  (eq (current-local-map) my--llm-vterm-installed-keymap))
 
 (defun my--llm-vterm-reinstall-keymaps ()
   "Reinstall our keymap in every buffer that still carries it.
@@ -784,10 +784,11 @@ The C-c prefix is available because C-c is itself listed in
 
 (defun my--llm-vterm-setup-keymap ()
   "Install a sparse keymap with LLM-specific bindings.
-Binds every entry of `my-llm-vterm-key-bindings' over the keymap
-that was in effect before the first install, so running this
-again replaces our keymap instead of stacking another one on it."
-  (when (eq my--llm-vterm-base-keymap my--llm-vterm-keymap-unset)
+Binds every entry of `my-llm-vterm-key-bindings' over whatever
+local map is not ours: our own keymap is replaced rather than
+stacked upon, and a map installed by anyone else becomes the base
+of this install rather than being discarded."
+  (unless (my--llm-vterm-keymap-installed-p)
     (setq my--llm-vterm-base-keymap (current-local-map)))
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map my--llm-vterm-base-keymap)
