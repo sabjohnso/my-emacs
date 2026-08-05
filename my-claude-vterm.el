@@ -743,6 +743,22 @@ base of our next install.")
   "Return non-nil when our keymap is the current buffer's local map."
   (eq (current-local-map) my--llm-vterm-installed-keymap))
 
+(defun my--llm-vterm-adopt-keymap (map)
+  "Return MAP with our previously installed keymap spliced out of it.
+A package that derives its keymap from the current local map
+captures ours as a parent.  Left there, a key we no longer bind
+would keep resolving through that buried copy, and every later
+install would lengthen the chain."
+  (when (keymapp my--llm-vterm-installed-keymap)
+    (let ((link map))
+      (while (keymapp link)
+        (if (eq (keymap-parent link) my--llm-vterm-installed-keymap)
+            (progn
+              (set-keymap-parent link my--llm-vterm-base-keymap)
+              (setq link nil))
+          (setq link (keymap-parent link))))))
+  map)
+
 (defun my--llm-vterm-reinstall-keymaps ()
   "Reinstall our keymap in every buffer that still carries it.
 Lets a change to `my-llm-vterm-key-bindings' reach live buffers
@@ -755,9 +771,11 @@ local map has since been replaced is left alone."
 
 (defun my--llm-vterm-key-description-p (key)
   "Return non-nil when KEY is a key description Emacs itself would print.
-Rejects a string `kbd' misreads, which would otherwise reach the
-terminal as whatever those characters happen to mean."
+Rejects the empty string, which names no key, and any string `kbd'
+misreads, which would otherwise reach the terminal as whatever
+those characters happen to mean."
   (and (stringp key)
+       (not (string-empty-p key))
        (equal (ignore-errors (key-description (kbd key))) key)))
 
 (defcustom my-llm-vterm-key-bindings
@@ -789,7 +807,8 @@ local map is not ours: our own keymap is replaced rather than
 stacked upon, and a map installed by anyone else becomes the base
 of this install rather than being discarded."
   (unless (my--llm-vterm-keymap-installed-p)
-    (setq my--llm-vterm-base-keymap (current-local-map)))
+    (setq my--llm-vterm-base-keymap
+          (my--llm-vterm-adopt-keymap (current-local-map))))
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map my--llm-vterm-base-keymap)
     (pcase-dolist (`(,key . ,command) my-llm-vterm-key-bindings)

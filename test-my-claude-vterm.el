@@ -202,12 +202,34 @@ in the order they were sent."
   "The default follows Claude Code's own default for `chat:killAgents'."
   (should (equal (default-value 'my-claude-kill-agents-chord) "C-x C-k")))
 
-(ert-deftest my-claude-kill-agents-chord-rejects-a-non-key ()
-  "Customization refuses a string that is not a key description."
-  (let ((type (widget-convert
-               (get 'my-claude-kill-agents-chord 'custom-type))))
-    (should (widget-apply type :match "C-x C-k"))
-    (should-not (widget-apply type :match "ctrl-x"))))
+(defconst test-my-claude--key-descriptions '("C-x C-k" "<f5>" "M-g M-g")
+  "Strings that name a key and must be accepted everywhere.")
+
+(defconst test-my-claude--non-key-descriptions '("ctrl-x" "C-x C-K" "")
+  "Strings that name no key and must be rejected everywhere.")
+
+(defun test-my-claude--key-widget-matches (symbol key)
+  "Return non-nil when SYMBOL's customization type accepts KEY."
+  (widget-apply (widget-convert (get symbol 'custom-type)) :match key))
+
+(ert-deftest my-claude-kill-agents-chord-type-follows-the-predicate ()
+  "The chord's customization type accepts exactly what the predicate does."
+  (dolist (key test-my-claude--key-descriptions)
+    (should (test-my-claude--key-widget-matches
+             'my-claude-kill-agents-chord key)))
+  (dolist (key test-my-claude--non-key-descriptions)
+    (should-not (test-my-claude--key-widget-matches
+                 'my-claude-kill-agents-chord key))))
+
+(ert-deftest my-llm-vterm-key-bindings-type-follows-the-predicate ()
+  "The table's key type accepts exactly what the predicate does."
+  (let ((key-type (plist-get (cdr (get 'my-llm-vterm-key-bindings
+                                       'custom-type))
+                             :key-type)))
+    (dolist (key test-my-claude--key-descriptions)
+      (should (widget-apply (widget-convert key-type) :match key)))
+    (dolist (key test-my-claude--non-key-descriptions)
+      (should-not (widget-apply (widget-convert key-type) :match key)))))
 
 ;;; --- my--llm-vterm-key-description-p ---
 
@@ -373,6 +395,54 @@ silently drop the replacement's bindings."
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-k"))
                   #'my-claude-kill-agents)))))
+
+(defun test-my-claude--keymap-chain (map)
+  "Return the list of keymaps reachable from MAP through its parents."
+  (let (chain)
+    (while (keymapp map)
+      (push map chain)
+      (setq map (keymap-parent map)))
+    (nreverse chain)))
+
+(ert-deftest my-llm-vterm-keymap-install-unlinks-our-earlier-keymap ()
+  "A keymap derived from ours does not keep our earlier one alive.
+A package that derives its keymap from the current local map
+captures ours as a parent.  Left there, a key dropped from
+`my-llm-vterm-key-bindings' would still resolve through it."
+  (with-temp-buffer
+    (let ((base (make-sparse-keymap)))
+      (define-key base (kbd "C-c C-t") #'ignore)
+      (use-local-map base)
+      (my--llm-vterm-setup-keymap)
+      (let ((ours    (current-local-map))
+            (derived (make-sparse-keymap)))
+        (set-keymap-parent derived (current-local-map))
+        (define-key derived (kbd "C-c C-y") #'ignore)
+        (use-local-map derived)
+        (let ((my-llm-vterm-key-bindings '(("C-c C-9" . ignore))))
+          (my--llm-vterm-setup-keymap))
+        (should-not (memq ours (test-my-claude--keymap-chain
+                                (current-local-map))))
+        (should-not (lookup-key (current-local-map) (kbd "C-c C-k"))))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-9")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-y")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore)))))
+
+(ert-deftest my-llm-vterm-keymap-install-bounds-the-parent-chain ()
+  "Each derive-and-install cycle leaves one map behind, not two.
+The map the other package installed stays; the keymap we had
+installed before it does not."
+  (with-temp-buffer
+    (use-local-map (make-sparse-keymap))
+    (my--llm-vterm-setup-keymap)
+    (let ((depth (length (test-my-claude--keymap-chain (current-local-map)))))
+      (dotimes (_ 5)
+        (let ((derived (make-sparse-keymap)))
+          (set-keymap-parent derived (current-local-map))
+          (use-local-map derived))
+        (my--llm-vterm-setup-keymap))
+      (should (= (length (test-my-claude--keymap-chain (current-local-map)))
+                 (+ depth 5))))))
 
 (ert-deftest my-llm-vterm-keymap-install-is-idempotent ()
   "A second install replaces our keymap instead of stacking another on it.
