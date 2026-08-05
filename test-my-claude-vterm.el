@@ -160,15 +160,171 @@
   (should (string= (my--llm-vterm-full-command "codex" '("resume" "--last"))
                    "codex resume --last")))
 
-;;; --- vterm-mode-map key bindings ---
+;;; --- Key forwarding (keys Emacs intercepts before vterm) ---
 
-(ert-deftest my-claude-vterm-f11-toggles-fullscreen ()
-  "F11 in a vterm buffer toggles fullscreen and is not sent to the terminal.
-Skipped when vterm is not on `load-path'; run with
-`-f package-initialize' to include it."
-  (skip-unless (require 'vterm nil t))
-  (should (eq (lookup-key vterm-mode-map (kbd "<f11>"))
-              #'toggle-frame-fullscreen)))
+(defmacro test-my-claude--recording-sends (var &rest body)
+  "Run BODY with vterm's key sender stubbed, binding VAR to what was sent.
+VAR collects the `kbd' key descriptions handed to the terminal,
+in the order they were sent."
+  (declare (indent 1) (debug (symbolp body)))
+  `(let ((,var nil))
+     (cl-letf (((symbol-function 'vterm-send)
+                (lambda (keys) (setq ,var (append ,var (list keys))))))
+       ,@body)))
+
+(ert-deftest my-vterm-send-C-x-forwards-C-x ()
+  "Forwards the single key C-x, which Emacs reserves as its prefix key."
+  (test-my-claude--recording-sends sent
+    (my-vterm-send-C-x)
+    (should (equal sent '("C-x")))))
+
+(ert-deftest my-claude-kill-agents-forwards-the-chord ()
+  "Forwards C-x C-k, Claude Code's `chat:killAgents' chord."
+  (test-my-claude--recording-sends sent
+    (my-claude-kill-agents)
+    (should (equal sent '("C-x C-k")))))
+
+(ert-deftest my-claude-kill-agents-is-reachable-from-the-keymap ()
+  "Pressing C-c C-k forwards the chord, keymap and command together.
+The buffer must be the selected window's, because key lookup
+during `execute-kbd-macro' consults that window, not the buffer
+merely made current."
+  (let ((buf      (generate-new-buffer "*claude-keymap-test*"))
+        (original (window-buffer (selected-window))))
+    (unwind-protect
+        (test-my-claude--recording-sends sent
+          (set-window-buffer (selected-window) buf)
+          (with-current-buffer buf
+            (my--llm-vterm-setup-keymap)
+            (execute-kbd-macro (kbd "C-c C-k")))
+          (should (equal sent '("C-x C-k"))))
+      (set-window-buffer (selected-window) original)
+      (kill-buffer buf))))
+
+;;; --- my--llm-vterm-key-bindings ---
+
+(ert-deftest my-llm-vterm-key-bindings-are-distinct ()
+  "No key sequence appears twice, where the later entry would win silently."
+  (let ((keys (mapcar #'car my--llm-vterm-key-bindings)))
+    (should (equal keys (delete-dups (copy-sequence keys))))))
+
+(ert-deftest my-llm-vterm-key-bindings-are-canonical ()
+  "Every key string is spelled the way Emacs itself spells it."
+  (pcase-dolist (`(,key . ,_) my--llm-vterm-key-bindings)
+    (should (equal (key-description (kbd key)) key))))
+
+;;; --- my--llm-vterm-setup-keymap ---
+
+(defun test-my-claude--local-binding (key)
+  "Return the command KEY is bound to in a freshly configured keymap."
+  (with-temp-buffer
+    (my--llm-vterm-setup-keymap)
+    (lookup-key (current-local-map) (kbd key))))
+
+(ert-deftest my-llm-vterm-keymap-binds-every-table-entry ()
+  "Every entry of `my--llm-vterm-key-bindings' is installed, whatever it holds."
+  (with-temp-buffer
+    (my--llm-vterm-setup-keymap)
+    (pcase-dolist (`(,key . ,command) my--llm-vterm-key-bindings)
+      (should (eq (lookup-key (current-local-map) (kbd key)) command)))))
+
+(ert-deftest my-llm-vterm-keymap-preserves-the-parent-map ()
+  "Keys absent from the table keep their inherited binding; the table wins."
+  (with-temp-buffer
+    (let ((parent (make-sparse-keymap)))
+      (define-key parent (kbd "C-c C-t") #'ignore)
+      (define-key parent (kbd "C-c C-c") #'undefined)
+      (use-local-map parent))
+    (my--llm-vterm-setup-keymap)
+    (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore))
+    (should (eq (lookup-key (current-local-map) (kbd "C-c C-c"))
+                #'my--vterm-send-escape))))
+
+(ert-deftest my-llm-vterm-keymap-preserves-C-c-C-c ()
+  "C-c C-c still sends ESC."
+  (should (eq (test-my-claude--local-binding "C-c C-c")
+              #'my--vterm-send-escape)))
+
+(ert-deftest my-llm-vterm-keymap-preserves-f5 ()
+  "<f5> still runs `compile'."
+  (should (eq (test-my-claude--local-binding "<f5>") #'compile)))
+
+;;; --- my--llm-vterm-kill-current ---
+
+(ert-deftest my-llm-vterm-kill-current-silences-the-exit-query ()
+  "The running process is cleared of its exit query before the kill."
+  (let* ((buf  (generate-new-buffer "*claude-process-test*"))
+         (proc (start-process "test-sleep" buf "sleep" "60")))
+    (with-current-buffer buf
+      (setq-local my--llm-vterm-command "claude")
+      (my--llm-vterm-kill-current))
+    (should-not (process-query-on-exit-flag proc))
+    (should-not (buffer-live-p buf))))
+
+(ert-deftest my-llm-vterm-kill-current-returns-the-session ()
+  "The session is captured before the buffer that holds it is destroyed."
+  (let* ((buf (generate-new-buffer "*claude-session-test*"))
+         (session (with-current-buffer buf
+                    (setq-local my--llm-vterm-command "claude")
+                    (setq-local default-directory "/tmp/")
+                    (my--llm-vterm-kill-current))))
+    (should (equal (plist-get session :command) "claude"))
+    (should (equal (plist-get session :name) "*claude-session-test*"))
+    (should (equal (plist-get session :directory) "/tmp/"))))
+
+;;; --- my-claude-quit ---
+
+(ert-deftest my-claude-quit-rejects-a-foreign-buffer ()
+  "Quitting a buffer that runs no LLM signals a user error."
+  (with-temp-buffer
+    (should-error (my-claude-quit) :type 'user-error)))
+
+(ert-deftest my-claude-quit-kills-the-buffer ()
+  "Quitting kills the LLM vterm buffer."
+  (let ((buf (generate-new-buffer "*claude-test*")))
+    (with-current-buffer buf
+      (setq-local my--llm-vterm-command "claude")
+      (my-claude-quit))
+    (should-not (buffer-live-p buf))))
+
+;;; --- my-claude-restart ---
+
+(ert-deftest my-claude-restart-rejects-a-foreign-buffer ()
+  "Restarting a buffer that runs no LLM signals a user error."
+  (with-temp-buffer
+    (should-error (my-claude-restart) :type 'user-error)))
+
+(ert-deftest my-claude-restart-recreates-the-session ()
+  "Restart reuses the name, command and directory, and resumes the session."
+  (let ((buf   (generate-new-buffer "*claude-restart-test*"))
+        (calls nil))
+    (cl-letf (((symbol-function 'my--llm-vterm-create-buffer)
+               (lambda (&rest args)
+                 (setq calls (append calls (list (cons default-directory
+                                                       args)))))))
+      (with-current-buffer buf
+        (setq-local my--llm-vterm-command "claude")
+        (setq-local default-directory "/tmp/")
+        (my-claude-restart)))
+    (should-not (buffer-live-p buf))
+    (should (equal calls
+                   '(("/tmp/" "*claude-restart-test*" "claude" ("--continue")))))))
+
+(ert-deftest my-claude-restart-aborts-when-the-kill-is-vetoed ()
+  "A surviving buffer is not shadowed by a second one."
+  (let ((buf     (generate-new-buffer "*claude-veto-test*"))
+        (created nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'my--llm-vterm-create-buffer)
+                   (lambda (&rest _) (setq created t))))
+          (with-current-buffer buf
+            (setq-local my--llm-vterm-command "claude")
+            (add-hook 'kill-buffer-query-functions #'ignore nil t)
+            (should-error (my-claude-restart) :type 'user-error)))
+      (with-current-buffer buf
+        (setq-local kill-buffer-query-functions nil))
+      (kill-buffer buf))
+    (should-not created)))
 
 ;;; --- Integration: server name is deterministic ---
 

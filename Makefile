@@ -1,6 +1,9 @@
 EMACS ?= emacs
 ELPA   = $(HOME)/.emacs.d/elpa
 
+# The three test targets share no artifacts, so run them concurrently.
+MAKEFLAGS += -j3
+
 # ELPA package directories needed for batch loading
 GPTEL_DIR     = $(firstword $(wildcard $(ELPA)/gptel-[0-9]*))
 TRANSIENT_DIR = $(firstword $(wildcard $(ELPA)/transient-[0-9]*))

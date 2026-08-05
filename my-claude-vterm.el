@@ -26,6 +26,8 @@
 (declare-function vterm-mode "vterm")
 (declare-function vterm-send-string "vterm")
 (declare-function vterm-send-key "vterm")
+(declare-function vterm-send "vterm")
+(declare-function vterm-send-next-key "vterm")
 (declare-function vterm--filter "vterm")
 
 (defface my-claude-suggestion
@@ -84,18 +86,23 @@ resuming the most recent conversation for that directory (see
 `my--llm-resume-args-alist' for the resume arguments used per
 command)."
   (interactive)
-  (unless my--llm-vterm-command
-    (user-error "Not a Claude/Codex vterm buffer"))
-  (let* ((command   my--llm-vterm-command)
-         (buf-name  (buffer-name))
-         (dir       default-directory)
-         (proc      (get-buffer-process (current-buffer))))
-    (when proc
-      (set-process-query-on-exit-flag proc nil))
-    (kill-buffer)
-    (let ((default-directory dir))
+  (let ((session (my--llm-vterm-kill-current)))
+    (unless session
+      (user-error "Buffer was not killed; not restarting"))
+    (let ((command           (plist-get session :command))
+          (default-directory (plist-get session :directory)))
       (my--llm-vterm-create-buffer
-       buf-name command (my--llm-resume-args command)))))
+       (plist-get session :name) command (my--llm-resume-args command)))))
+
+;;;###autoload
+(defun my-claude-quit ()
+  "Quit the LLM running in the current vterm buffer.
+Kills the process and the buffer directly, which avoids Claude
+Code's exit screen and the keys it expects there.  The LLM is not
+given the chance to shut down whatever it started in the
+background; use its own exit path when that matters."
+  (interactive)
+  (my--llm-vterm-kill-current))
 
 
 ;;;; ---------------------------------------------------------------
@@ -202,6 +209,27 @@ back via emacsclient."
     (if (get-buffer buf-name)
         (pop-to-buffer buf-name)
       (my--llm-vterm-create-buffer buf-name command))))
+
+(defun my--llm-vterm-session ()
+  "Return a plist recording the LLM session in the current buffer."
+  (list :command   my--llm-vterm-command
+        :name      (buffer-name)
+        :directory default-directory))
+
+(defun my--llm-vterm-kill-current ()
+  "Kill the current LLM vterm buffer together with its process.
+Return the session recorded by `my--llm-vterm-session', captured
+before the buffer holding it is destroyed, or nil when the kill
+was vetoed and the buffer survives.  Signal a `user-error' when
+the current buffer runs no LLM.  The process exits without the
+usual confirmation prompt."
+  (unless my--llm-vterm-command
+    (user-error "Not a Claude/Codex vterm buffer"))
+  (let ((session (my--llm-vterm-session))
+        (proc    (get-buffer-process (current-buffer))))
+    (when proc
+      (set-process-query-on-exit-flag proc nil))
+    (and (kill-buffer) session)))
 
 (defun my--llm-vterm-create-buffer (buf-name command &optional extra-args)
   "Create and configure a new vterm buffer BUF-NAME running COMMAND.
@@ -660,13 +688,47 @@ its cursor and input line."
   (interactive)
   (vterm-send-key "<escape>"))
 
+(defun my-vterm-send-C-x ()
+  "Forward a literal C-x to the terminal process.
+Emacs reserves C-x as its own prefix key, so `vterm-mode-map'
+never forwards it (see `vterm-keymap-exceptions').  Claude Code
+needs it as the first key of a chord."
+  (interactive)
+  (vterm-send "C-x"))
+
+(defun my-claude-kill-agents ()
+  "Forward Claude Code's kill-background-agents chord, C-x C-k.
+The chord is unreachable otherwise: Emacs consumes C-x as a
+prefix and then waits for the rest of its own key sequence.
+The chord is Claude Code's default for `chat:killAgents'."
+  (interactive)
+  (vterm-send "C-x C-k"))
+
+(defun my-vterm-send-next-key ()
+  "Forward the next key pressed to the terminal process, whatever it is.
+Covers any other key Emacs claims before vterm sees it."
+  (interactive)
+  (vterm-send-next-key))
+
+(defconst my--llm-vterm-key-bindings
+  '(("C-c C-c" . my--vterm-send-escape)
+    ("C-c C-x" . my-vterm-send-C-x)
+    ("C-c C-k" . my-claude-kill-agents)
+    ("C-c C-v" . my-vterm-send-next-key)
+    ("C-c C-q" . my-claude-quit)
+    ("<f5>"    . compile))
+  "Alist of key sequence to command for LLM vterm buffers.
+The C-c prefix is available because C-c is itself listed in
+`vterm-keymap-exceptions', so vterm leaves it to Emacs.")
+
 (defun my--llm-vterm-setup-keymap ()
   "Install a sparse keymap with LLM-specific bindings.
-Preserves the existing vterm keymap as parent."
+Binds every entry of `my--llm-vterm-key-bindings' and preserves
+the existing vterm keymap as parent."
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map (current-local-map))
-    (define-key map (kbd "C-c C-c") #'my--vterm-send-escape)
-    (define-key map (kbd "<f5>") #'compile)
+    (pcase-dolist (`(,key . ,command) my--llm-vterm-key-bindings)
+      (define-key map (kbd key) command))
     (use-local-map map)))
 
 
