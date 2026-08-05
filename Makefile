@@ -1,8 +1,9 @@
 EMACS ?= emacs
 ELPA   = $(HOME)/.emacs.d/elpa
 
-# The three test targets share no artifacts, so run them concurrently.
-MAKEFLAGS += -j3
+# The test targets share no artifacts, so run them concurrently; -Otarget
+# keeps each target's output whole instead of interleaving three test logs.
+MAKEFLAGS += -j -Otarget
 
 # ELPA package directories needed for batch loading
 GPTEL_DIR     = $(firstword $(wildcard $(ELPA)/gptel-[0-9]*))

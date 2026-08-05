@@ -30,6 +30,11 @@
 (declare-function vterm-send-next-key "vterm")
 (declare-function vterm--filter "vterm")
 
+(defgroup my-claude-vterm nil
+  "Run Claude Code and other LLMs in a vterm buffer."
+  :group 'external
+  :prefix "my-")
+
 (defface my-claude-suggestion
   '((((background dark))  :foreground "#808080" :slant italic)
     (((background light)) :foreground "#999999" :slant italic)
@@ -696,13 +701,16 @@ needs it as the first key of a chord."
   (interactive)
   (vterm-send "C-x"))
 
+(defconst my--claude-kill-agents-chord "C-x C-k"
+  "Claude Code's default key sequence for its `chat:killAgents' action.")
+
 (defun my-claude-kill-agents ()
-  "Forward Claude Code's kill-background-agents chord, C-x C-k.
-The chord is unreachable otherwise: Emacs consumes C-x as a
-prefix and then waits for the rest of its own key sequence.
-The chord is Claude Code's default for `chat:killAgents'."
+  "Forward Claude Code's kill-background-agents chord.
+The chord is `my--claude-kill-agents-chord'.  It is unreachable
+otherwise: Emacs consumes its leading C-x as a prefix and then
+waits for the rest of its own key sequence."
   (interactive)
-  (vterm-send "C-x C-k"))
+  (vterm-send my--claude-kill-agents-chord))
 
 (defun my-vterm-send-next-key ()
   "Forward the next key pressed to the terminal process, whatever it is.
@@ -710,7 +718,7 @@ Covers any other key Emacs claims before vterm sees it."
   (interactive)
   (vterm-send-next-key))
 
-(defconst my--llm-vterm-key-bindings
+(defcustom my-llm-vterm-key-bindings
   '(("C-c C-c" . my--vterm-send-escape)
     ("C-c C-x" . my-vterm-send-C-x)
     ("C-c C-k" . my-claude-kill-agents)
@@ -719,15 +727,25 @@ Covers any other key Emacs claims before vterm sees it."
     ("<f5>"    . compile))
   "Alist of key sequence to command for LLM vterm buffers.
 The C-c prefix is available because C-c is itself listed in
-`vterm-keymap-exceptions', so vterm leaves it to Emacs.")
+`vterm-keymap-exceptions', so vterm leaves it to Emacs."
+  :type '(alist :key-type string :value-type function)
+  :group 'my-claude-vterm)
+
+(defvar-local my--llm-vterm-base-keymap nil
+  "The local keymap in effect before ours was first installed here.
+Recorded so that a repeated install replaces our keymap rather
+than nesting a second copy on top of it.")
 
 (defun my--llm-vterm-setup-keymap ()
   "Install a sparse keymap with LLM-specific bindings.
-Binds every entry of `my--llm-vterm-key-bindings' and preserves
-the existing vterm keymap as parent."
+Binds every entry of `my-llm-vterm-key-bindings' over the keymap
+that was in effect before the first install, so running this
+again replaces our keymap instead of stacking another one on it."
+  (unless my--llm-vterm-base-keymap
+    (setq my--llm-vterm-base-keymap (current-local-map)))
   (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map (current-local-map))
-    (pcase-dolist (`(,key . ,command) my--llm-vterm-key-bindings)
+    (set-keymap-parent map my--llm-vterm-base-keymap)
+    (pcase-dolist (`(,key . ,command) my-llm-vterm-key-bindings)
       (define-key map (kbd key) command))
     (use-local-map map)))
 

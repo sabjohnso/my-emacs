@@ -201,17 +201,30 @@ merely made current."
       (set-window-buffer (selected-window) original)
       (kill-buffer buf))))
 
-;;; --- my--llm-vterm-key-bindings ---
+(ert-deftest my-vterm-send-next-key-delegates-to-vterm ()
+  "Forwarding the next key is vterm's own command, not a reimplementation."
+  (let ((called nil))
+    (cl-letf (((symbol-function 'vterm-send-next-key)
+               (lambda () (setq called t))))
+      (my-vterm-send-next-key))
+    (should called)))
+
+;;; --- my-llm-vterm-key-bindings ---
 
 (ert-deftest my-llm-vterm-key-bindings-are-distinct ()
   "No key sequence appears twice, where the later entry would win silently."
-  (let ((keys (mapcar #'car my--llm-vterm-key-bindings)))
+  (let ((keys (mapcar #'car my-llm-vterm-key-bindings)))
     (should (equal keys (delete-dups (copy-sequence keys))))))
 
 (ert-deftest my-llm-vterm-key-bindings-are-canonical ()
   "Every key string is spelled the way Emacs itself spells it."
-  (pcase-dolist (`(,key . ,_) my--llm-vterm-key-bindings)
+  (pcase-dolist (`(,key . ,_) my-llm-vterm-key-bindings)
     (should (equal (key-description (kbd key)) key))))
+
+(ert-deftest my-llm-vterm-key-bindings-name-commands ()
+  "Every entry names a command, not an arbitrary symbol `define-key' accepts."
+  (pcase-dolist (`(,_ . ,command) my-llm-vterm-key-bindings)
+    (should (commandp command))))
 
 ;;; --- my--llm-vterm-setup-keymap ---
 
@@ -222,11 +235,34 @@ merely made current."
     (lookup-key (current-local-map) (kbd key))))
 
 (ert-deftest my-llm-vterm-keymap-binds-every-table-entry ()
-  "Every entry of `my--llm-vterm-key-bindings' is installed, whatever it holds."
+  "Every entry of `my-llm-vterm-key-bindings' is installed."
   (with-temp-buffer
     (my--llm-vterm-setup-keymap)
-    (pcase-dolist (`(,key . ,command) my--llm-vterm-key-bindings)
+    (pcase-dolist (`(,key . ,command) my-llm-vterm-key-bindings)
       (should (eq (lookup-key (current-local-map) (kbd key)) command)))))
+
+(ert-deftest my-llm-vterm-keymap-follows-the-table ()
+  "Installation is driven by the table, not by the keys it happens to hold."
+  (with-temp-buffer
+    (let ((my-llm-vterm-key-bindings '(("C-c C-9" . ignore)
+                                       ("<f9>"    . undefined))))
+      (my--llm-vterm-setup-keymap)
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-9")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "<f9>")) #'undefined))
+      (should-not (lookup-key (current-local-map) (kbd "C-c C-k"))))))
+
+(ert-deftest my-llm-vterm-keymap-install-is-idempotent ()
+  "A second install replaces our keymap instead of stacking another on it."
+  (with-temp-buffer
+    (let ((parent (make-sparse-keymap)))
+      (define-key parent (kbd "C-c C-t") #'ignore)
+      (use-local-map parent)
+      (my--llm-vterm-setup-keymap)
+      (my--llm-vterm-setup-keymap)
+      (should (eq (keymap-parent (current-local-map)) parent))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-k"))
+                  #'my-claude-kill-agents)))))
 
 (ert-deftest my-llm-vterm-keymap-preserves-the-parent-map ()
   "Keys absent from the table keep their inherited binding; the table wins."
@@ -294,21 +330,24 @@ merely made current."
   (with-temp-buffer
     (should-error (my-claude-restart) :type 'user-error)))
 
-(ert-deftest my-claude-restart-recreates-the-session ()
-  "Restart reuses the name, command and directory, and resumes the session."
-  (let ((buf   (generate-new-buffer "*claude-restart-test*"))
-        (calls nil))
-    (cl-letf (((symbol-function 'my--llm-vterm-create-buffer)
-               (lambda (&rest args)
-                 (setq calls (append calls (list (cons default-directory
-                                                       args)))))))
-      (with-current-buffer buf
-        (setq-local my--llm-vterm-command "claude")
-        (setq-local default-directory "/tmp/")
-        (my-claude-restart)))
-    (should-not (buffer-live-p buf))
-    (should (equal calls
-                   '(("/tmp/" "*claude-restart-test*" "claude" ("--continue")))))))
+(ert-deftest my-claude-restart-recreates-every-known-session ()
+  "For every known command, restart reuses the name and directory of the
+buffer it killed and passes that command's resume arguments."
+  (pcase-dolist (`(,command . ,resume-args) my--llm-resume-args-alist)
+    (let* ((buf   (generate-new-buffer (format "*%s-restart test*" command)))
+           (name  (buffer-name buf))
+           (dir   "/tmp/a directory/")
+           (calls nil))
+      (cl-letf (((symbol-function 'my--llm-vterm-create-buffer)
+                 (lambda (&rest args)
+                   (setq calls (append calls (list (cons default-directory
+                                                         args)))))))
+        (with-current-buffer buf
+          (setq-local my--llm-vterm-command command)
+          (setq-local default-directory dir)
+          (my-claude-restart)))
+      (should-not (buffer-live-p buf))
+      (should (equal calls (list (list dir name command resume-args)))))))
 
 (ert-deftest my-claude-restart-aborts-when-the-kill-is-vetoed ()
   "A surviving buffer is not shadowed by a second one."
