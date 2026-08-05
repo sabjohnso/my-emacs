@@ -701,22 +701,45 @@ needs it as the first key of a chord."
   (interactive)
   (vterm-send "C-x"))
 
-(defconst my--claude-kill-agents-chord "C-x C-k"
-  "Claude Code's default key sequence for its `chat:killAgents' action.")
+(defcustom my-claude-kill-agents-chord "C-x C-k"
+  "Key sequence Claude Code binds to its `chat:killAgents' action.
+This is Claude Code's default; change it here to follow a
+rebinding made in Claude Code's own keybindings file."
+  :type 'string
+  :group 'my-claude-vterm)
 
 (defun my-claude-kill-agents ()
   "Forward Claude Code's kill-background-agents chord.
-The chord is `my--claude-kill-agents-chord'.  It is unreachable
+The chord is `my-claude-kill-agents-chord'.  It is unreachable
 otherwise: Emacs consumes its leading C-x as a prefix and then
 waits for the rest of its own key sequence."
   (interactive)
-  (vterm-send my--claude-kill-agents-chord))
+  (vterm-send my-claude-kill-agents-chord))
 
 (defun my-vterm-send-next-key ()
   "Forward the next key pressed to the terminal process, whatever it is.
 Covers any other key Emacs claims before vterm sees it."
   (interactive)
   (vterm-send-next-key))
+
+(defconst my--llm-vterm-keymap-unset 'unset
+  "Marker for a buffer where our keymap has never been installed.
+Nil cannot serve: it is the value `current-local-map' returns in
+a buffer that has no local map.")
+
+(defvar-local my--llm-vterm-base-keymap my--llm-vterm-keymap-unset
+  "The local keymap in effect before ours was first installed here.
+Recorded so that a repeated install replaces our keymap rather
+than nesting a second copy on top of it.")
+
+(defun my--llm-vterm-reinstall-keymaps ()
+  "Reinstall our keymap in every buffer that already carries one.
+Lets a change to `my-llm-vterm-key-bindings' reach live buffers
+instead of waiting for each to be recreated."
+  (dolist (buf (buffer-list))
+    (with-current-buffer buf
+      (unless (eq my--llm-vterm-base-keymap my--llm-vterm-keymap-unset)
+        (my--llm-vterm-setup-keymap)))))
 
 (defcustom my-llm-vterm-key-bindings
   '(("C-c C-c" . my--vterm-send-escape)
@@ -728,20 +751,21 @@ Covers any other key Emacs claims before vterm sees it."
   "Alist of key sequence to command for LLM vterm buffers.
 The C-c prefix is available because C-c is itself listed in
 `vterm-keymap-exceptions', so vterm leaves it to Emacs."
-  :type '(alist :key-type string :value-type function)
+  :type '(alist :key-type string
+                :value-type (restricted-sexp
+                             :match-alternatives (commandp)))
+  :initialize #'custom-initialize-default
+  :set (lambda (symbol value)
+         (set-default symbol value)
+         (my--llm-vterm-reinstall-keymaps))
   :group 'my-claude-vterm)
-
-(defvar-local my--llm-vterm-base-keymap nil
-  "The local keymap in effect before ours was first installed here.
-Recorded so that a repeated install replaces our keymap rather
-than nesting a second copy on top of it.")
 
 (defun my--llm-vterm-setup-keymap ()
   "Install a sparse keymap with LLM-specific bindings.
 Binds every entry of `my-llm-vterm-key-bindings' over the keymap
 that was in effect before the first install, so running this
 again replaces our keymap instead of stacking another one on it."
-  (unless my--llm-vterm-base-keymap
+  (when (eq my--llm-vterm-base-keymap my--llm-vterm-keymap-unset)
     (setq my--llm-vterm-base-keymap (current-local-map)))
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map my--llm-vterm-base-keymap)

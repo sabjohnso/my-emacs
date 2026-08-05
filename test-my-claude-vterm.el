@@ -144,6 +144,15 @@
   "An unrecognized command has no resume arguments."
   (should (null (my--llm-resume-args "foo"))))
 
+(ert-deftest my-llm-resume-args-need-no-shell-quoting ()
+  "Resume arguments survive `my--llm-vterm-full-command', which does not quote.
+The joined command is interpolated into a shell command line, so
+an argument holding whitespace or a shell metacharacter would be
+split or interpreted there."
+  (pcase-dolist (`(,_ . ,args) my--llm-resume-args-alist)
+    (dolist (arg args)
+      (should-not (string-match-p "[ \t\n\"'`$\\\\|&;<>()]" arg)))))
+
 ;;; --- my--llm-vterm-full-command ---
 
 (ert-deftest my-llm-vterm-full-command-no-extra-args ()
@@ -179,10 +188,15 @@ in the order they were sent."
     (should (equal sent '("C-x")))))
 
 (ert-deftest my-claude-kill-agents-forwards-the-chord ()
-  "Forwards C-x C-k, Claude Code's `chat:killAgents' chord."
+  "Forwards Claude Code's `chat:killAgents' chord, whatever it is set to."
   (test-my-claude--recording-sends sent
     (my-claude-kill-agents)
-    (should (equal sent '("C-x C-k")))))
+    (should (equal sent (list my-claude-kill-agents-chord)))))
+
+(ert-deftest my-claude-kill-agents-chord-is-canonical ()
+  "The chord is spelled the way Emacs itself spells it."
+  (should (equal (key-description (kbd my-claude-kill-agents-chord))
+                 my-claude-kill-agents-chord)))
 
 (ert-deftest my-claude-kill-agents-is-reachable-from-the-keymap ()
   "Pressing C-c C-k forwards the chord, keymap and command together.
@@ -197,7 +211,7 @@ merely made current."
           (with-current-buffer buf
             (my--llm-vterm-setup-keymap)
             (execute-kbd-macro (kbd "C-c C-k")))
-          (should (equal sent '("C-x C-k"))))
+          (should (equal sent (list my-claude-kill-agents-chord))))
       (set-window-buffer (selected-window) original)
       (kill-buffer buf))))
 
@@ -226,6 +240,25 @@ merely made current."
   (pcase-dolist (`(,_ . ,command) my-llm-vterm-key-bindings)
     (should (commandp command))))
 
+(ert-deftest my-llm-vterm-key-bindings-are-customizable ()
+  "The table is a customization option, not a constant to edit in place."
+  (should (custom-variable-p 'my-llm-vterm-key-bindings)))
+
+(ert-deftest my-llm-vterm-key-bindings-reinstall-on-customization ()
+  "Customizing the table reaches buffers that already have our keymap."
+  (let ((buf (generate-new-buffer "*claude-custom-test*"))
+        (original my-llm-vterm-key-bindings))
+    (unwind-protect
+        (with-current-buffer buf
+          (my--llm-vterm-setup-keymap)
+          (customize-set-variable 'my-llm-vterm-key-bindings
+                                  '(("C-c C-9" . ignore)))
+          (should (eq (lookup-key (current-local-map) (kbd "C-c C-9"))
+                      #'ignore))
+          (should-not (lookup-key (current-local-map) (kbd "C-c C-k"))))
+      (customize-set-variable 'my-llm-vterm-key-bindings original)
+      (kill-buffer buf))))
+
 ;;; --- my--llm-vterm-setup-keymap ---
 
 (defun test-my-claude--local-binding (key)
@@ -250,6 +283,19 @@ merely made current."
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-9")) #'ignore))
       (should (eq (lookup-key (current-local-map) (kbd "<f9>")) #'undefined))
       (should-not (lookup-key (current-local-map) (kbd "C-c C-k"))))))
+
+(ert-deftest my-llm-vterm-keymap-install-is-idempotent-without-a-parent ()
+  "A buffer that had no local map never adopts our own keymap as its base.
+Nil is a legal value of `current-local-map', so it cannot double
+as the marker for \"nothing recorded yet\"."
+  (with-temp-buffer
+    (my--llm-vterm-setup-keymap)
+    (let ((first (current-local-map)))
+      (my--llm-vterm-setup-keymap)
+      (should-not (eq (keymap-parent (current-local-map)) first))
+      (should (null (keymap-parent (current-local-map))))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-k"))
+                  #'my-claude-kill-agents)))))
 
 (ert-deftest my-llm-vterm-keymap-install-is-idempotent ()
   "A second install replaces our keymap instead of stacking another on it."
@@ -348,6 +394,18 @@ buffer it killed and passes that command's resume arguments."
           (my-claude-restart)))
       (should-not (buffer-live-p buf))
       (should (equal calls (list (list dir name command resume-args)))))))
+
+(ert-deftest my-claude-restart-relaunches-an-unknown-command ()
+  "A command with no resume arguments still keeps its name and directory."
+  (let* ((buf   (generate-new-buffer "*mystery-restart-test*"))
+         (name  (buffer-name buf))
+         (calls nil))
+    (cl-letf (((symbol-function 'my--llm-vterm-create-buffer)
+               (lambda (&rest args) (setq calls (append calls (list args))))))
+      (with-current-buffer buf
+        (setq-local my--llm-vterm-command "mystery")
+        (my-claude-restart)))
+    (should (equal calls (list (list name "mystery" nil))))))
 
 (ert-deftest my-claude-restart-aborts-when-the-kill-is-vetoed ()
   "A surviving buffer is not shadowed by a second one."
