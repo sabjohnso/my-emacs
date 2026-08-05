@@ -705,7 +705,8 @@ needs it as the first key of a chord."
   "Key sequence Claude Code binds to its `chat:killAgents' action.
 This is Claude Code's default; change it here to follow a
 rebinding made in Claude Code's own keybindings file."
-  :type 'string
+  :type '(restricted-sexp
+          :match-alternatives (my--llm-vterm-key-description-p))
   :group 'my-claude-vterm)
 
 (defun my-claude-kill-agents ()
@@ -732,14 +733,32 @@ a buffer that has no local map.")
 Recorded so that a repeated install replaces our keymap rather
 than nesting a second copy on top of it.")
 
+(defvar-local my--llm-vterm-installed-keymap nil
+  "The keymap our last install placed in this buffer.
+Identifies the buffers we may reinstall over: one whose local map
+is something else now belongs to whoever replaced it.")
+
+(defun my--llm-vterm-keymap-installed-p ()
+  "Return non-nil when our keymap is the current buffer's local map."
+  (and my--llm-vterm-installed-keymap
+       (eq (current-local-map) my--llm-vterm-installed-keymap)))
+
 (defun my--llm-vterm-reinstall-keymaps ()
-  "Reinstall our keymap in every buffer that already carries one.
+  "Reinstall our keymap in every buffer that still carries it.
 Lets a change to `my-llm-vterm-key-bindings' reach live buffers
-instead of waiting for each to be recreated."
+instead of waiting for each to be recreated.  A buffer whose
+local map has since been replaced is left alone."
   (dolist (buf (buffer-list))
     (with-current-buffer buf
-      (unless (eq my--llm-vterm-base-keymap my--llm-vterm-keymap-unset)
+      (when (my--llm-vterm-keymap-installed-p)
         (my--llm-vterm-setup-keymap)))))
+
+(defun my--llm-vterm-key-description-p (key)
+  "Return non-nil when KEY is a key description Emacs itself would print.
+Rejects a string `kbd' misreads, which would otherwise reach the
+terminal as whatever those characters happen to mean."
+  (and (stringp key)
+       (equal (ignore-errors (key-description (kbd key))) key)))
 
 (defcustom my-llm-vterm-key-bindings
   '(("C-c C-c" . my--vterm-send-escape)
@@ -751,9 +770,12 @@ instead of waiting for each to be recreated."
   "Alist of key sequence to command for LLM vterm buffers.
 The C-c prefix is available because C-c is itself listed in
 `vterm-keymap-exceptions', so vterm leaves it to Emacs."
-  :type '(alist :key-type string
+  :type '(alist :key-type (restricted-sexp
+                           :match-alternatives (my--llm-vterm-key-description-p))
                 :value-type (restricted-sexp
                              :match-alternatives (commandp)))
+  ;; custom-initialize-default keeps :set out of the load path, where
+  ;; my--llm-vterm-setup-keymap is not yet defined.
   :initialize #'custom-initialize-default
   :set (lambda (symbol value)
          (set-default symbol value)
@@ -771,6 +793,7 @@ again replaces our keymap instead of stacking another one on it."
     (set-keymap-parent map my--llm-vterm-base-keymap)
     (pcase-dolist (`(,key . ,command) my-llm-vterm-key-bindings)
       (define-key map (kbd key) command))
+    (setq my--llm-vterm-installed-keymap map)
     (use-local-map map)))
 
 

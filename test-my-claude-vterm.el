@@ -151,7 +151,7 @@ an argument holding whitespace or a shell metacharacter would be
 split or interpreted there."
   (pcase-dolist (`(,_ . ,args) my--llm-resume-args-alist)
     (dolist (arg args)
-      (should-not (string-match-p "[ \t\n\"'`$\\\\|&;<>()]" arg)))))
+      (should (string-match-p "\\`[-a-zA-Z0-9_./=]+\\'" arg)))))
 
 ;;; --- my--llm-vterm-full-command ---
 
@@ -197,6 +197,23 @@ in the order they were sent."
   "The chord is spelled the way Emacs itself spells it."
   (should (equal (key-description (kbd my-claude-kill-agents-chord))
                  my-claude-kill-agents-chord)))
+
+(ert-deftest my-claude-kill-agents-chord-defaults-to-C-x-C-k ()
+  "The default follows Claude Code's own default for `chat:killAgents'."
+  (should (equal (default-value 'my-claude-kill-agents-chord) "C-x C-k")))
+
+;;; --- my--llm-vterm-key-description-p ---
+
+(ert-deftest my-llm-vterm-key-description-p-accepts-canonical-keys ()
+  "A key description Emacs itself would print is accepted."
+  (should (my--llm-vterm-key-description-p "C-x C-k"))
+  (should (my--llm-vterm-key-description-p "<f5>")))
+
+(ert-deftest my-llm-vterm-key-description-p-rejects-other-strings ()
+  "Prose and non-canonical spellings are rejected, not silently sent."
+  (should-not (my--llm-vterm-key-description-p "ctrl-x"))
+  (should-not (my--llm-vterm-key-description-p "C-x C-K"))
+  (should-not (my--llm-vterm-key-description-p 5)))
 
 (ert-deftest my-claude-kill-agents-is-reachable-from-the-keymap ()
   "Pressing C-c C-k forwards the chord, keymap and command together.
@@ -259,6 +276,21 @@ merely made current."
       (customize-set-variable 'my-llm-vterm-key-bindings original)
       (kill-buffer buf))))
 
+(ert-deftest my-llm-vterm-key-bindings-spare-buffers-we-no-longer-own ()
+  "A buffer whose local map was replaced by something else is left alone."
+  (let ((buf      (generate-new-buffer "*claude-foreign-test*"))
+        (foreign  (make-sparse-keymap))
+        (original my-llm-vterm-key-bindings))
+    (unwind-protect
+        (with-current-buffer buf
+          (my--llm-vterm-setup-keymap)
+          (use-local-map foreign)
+          (customize-set-variable 'my-llm-vterm-key-bindings
+                                  '(("C-c C-9" . ignore)))
+          (should (eq (current-local-map) foreign)))
+      (customize-set-variable 'my-llm-vterm-key-bindings original)
+      (kill-buffer buf))))
+
 ;;; --- my--llm-vterm-setup-keymap ---
 
 (defun test-my-claude--local-binding (key)
@@ -298,15 +330,22 @@ as the marker for \"nothing recorded yet\"."
                   #'my-claude-kill-agents)))))
 
 (ert-deftest my-llm-vterm-keymap-install-is-idempotent ()
-  "A second install replaces our keymap instead of stacking another on it."
+  "A second install replaces our keymap instead of stacking another on it.
+The base map carries a parent of its own, the shape in which a
+stacked install would be hardest to see."
   (with-temp-buffer
-    (let ((parent (make-sparse-keymap)))
+    (let ((parent      (make-sparse-keymap))
+          (grandparent (make-sparse-keymap)))
+      (define-key grandparent (kbd "C-c C-r") #'ignore)
+      (set-keymap-parent parent grandparent)
       (define-key parent (kbd "C-c C-t") #'ignore)
       (use-local-map parent)
       (my--llm-vterm-setup-keymap)
       (my--llm-vterm-setup-keymap)
       (should (eq (keymap-parent (current-local-map)) parent))
+      (should (eq my--llm-vterm-base-keymap parent))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-r")) #'ignore))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-k"))
                   #'my-claude-kill-agents)))))
 
