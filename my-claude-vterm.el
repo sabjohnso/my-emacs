@@ -733,31 +733,36 @@ a buffer that has no local map.")
 Identifies the buffers we may reinstall over: one whose local map
 is something else now belongs to whoever replaced it.")
 
-(defvar-local my--llm-vterm-base-keymap nil
-  "The local keymap our installed keymap was built over.
-Meaningful only while `my--llm-vterm-keymap-installed-p' holds:
-once someone else replaces the local map, their map becomes the
-base of our next install.")
-
 (defun my--llm-vterm-keymap-installed-p ()
   "Return non-nil when our keymap is the current buffer's local map."
   (eq (current-local-map) my--llm-vterm-installed-keymap))
 
-(defun my--llm-vterm-adopt-keymap (map)
-  "Return MAP with our previously installed keymap spliced out of it.
-A package that derives its keymap from the current local map
-captures ours as a parent.  Left there, a key we no longer bind
-would keep resolving through that buried copy, and every later
-install would lengthen the chain."
+(defun my--llm-vterm-unlink-our-keymap (map)
+  "Splice our previously installed keymap out of MAP's parent chain.
+Mutates the chain in place and returns MAP.  A package that
+derives its keymap from the current local map captures ours as a
+parent; left there, a key we no longer bind would keep resolving
+through that buried copy, and every later install would lengthen
+the chain.  Whatever our keymap was built over takes its place."
   (when (keymapp my--llm-vterm-installed-keymap)
     (let ((link map))
       (while (keymapp link)
         (if (eq (keymap-parent link) my--llm-vterm-installed-keymap)
             (progn
-              (set-keymap-parent link my--llm-vterm-base-keymap)
+              (set-keymap-parent
+               link (keymap-parent my--llm-vterm-installed-keymap))
               (setq link nil))
           (setq link (keymap-parent link))))))
   map)
+
+(defun my--llm-vterm-keymap-base ()
+  "Return the local keymap our next install should be built over.
+Our own installed keymap is replaced rather than stacked upon, so
+what it was built over serves again; any other local map becomes
+the new base, once our earlier keymap is spliced out of it."
+  (if (my--llm-vterm-keymap-installed-p)
+      (keymap-parent my--llm-vterm-installed-keymap)
+    (my--llm-vterm-unlink-our-keymap (current-local-map))))
 
 (defun my--llm-vterm-reinstall-keymaps ()
   "Reinstall our keymap in every buffer that still carries it.
@@ -806,11 +811,9 @@ Binds every entry of `my-llm-vterm-key-bindings' over whatever
 local map is not ours: our own keymap is replaced rather than
 stacked upon, and a map installed by anyone else becomes the base
 of this install rather than being discarded."
-  (unless (my--llm-vterm-keymap-installed-p)
-    (setq my--llm-vterm-base-keymap
-          (my--llm-vterm-adopt-keymap (current-local-map))))
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map my--llm-vterm-base-keymap)
+  (let ((base (my--llm-vterm-keymap-base))
+        (map  (make-sparse-keymap)))
+    (set-keymap-parent map base)
     (pcase-dolist (`(,key . ,command) my-llm-vterm-key-bindings)
       (define-key map (kbd key) command))
     (setq my--llm-vterm-installed-keymap map)

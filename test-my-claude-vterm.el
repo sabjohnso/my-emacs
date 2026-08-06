@@ -212,24 +212,31 @@ in the order they were sent."
   "Return non-nil when SYMBOL's customization type accepts KEY."
   (widget-apply (widget-convert (get symbol 'custom-type)) :match key))
 
+(defun test-my-claude--widget-agrees-with-predicate (matcher key)
+  "Return non-nil when MATCHER and the predicate agree about KEY.
+MATCHER is a function of one key description."
+  (eq (not (funcall matcher key))
+      (not (my--llm-vterm-key-description-p key))))
+
 (ert-deftest my-claude-kill-agents-chord-type-follows-the-predicate ()
   "The chord's customization type accepts exactly what the predicate does."
-  (dolist (key test-my-claude--key-descriptions)
-    (should (test-my-claude--key-widget-matches
-             'my-claude-kill-agents-chord key)))
-  (dolist (key test-my-claude--non-key-descriptions)
-    (should-not (test-my-claude--key-widget-matches
-                 'my-claude-kill-agents-chord key))))
+  (let ((matcher (lambda (key)
+                   (test-my-claude--key-widget-matches
+                    'my-claude-kill-agents-chord key))))
+    (dolist (key (append test-my-claude--key-descriptions
+                         test-my-claude--non-key-descriptions))
+      (should (test-my-claude--widget-agrees-with-predicate matcher key)))))
 
 (ert-deftest my-llm-vterm-key-bindings-type-follows-the-predicate ()
   "The table's key type accepts exactly what the predicate does."
-  (let ((key-type (plist-get (cdr (get 'my-llm-vterm-key-bindings
-                                       'custom-type))
-                             :key-type)))
-    (dolist (key test-my-claude--key-descriptions)
-      (should (widget-apply (widget-convert key-type) :match key)))
-    (dolist (key test-my-claude--non-key-descriptions)
-      (should-not (widget-apply (widget-convert key-type) :match key)))))
+  (let* ((key-type (plist-get (cdr (get 'my-llm-vterm-key-bindings
+                                        'custom-type))
+                              :key-type))
+         (matcher  (lambda (key)
+                     (widget-apply (widget-convert key-type) :match key))))
+    (dolist (key (append test-my-claude--key-descriptions
+                         test-my-claude--non-key-descriptions))
+      (should (test-my-claude--widget-agrees-with-predicate matcher key)))))
 
 ;;; --- my--llm-vterm-key-description-p ---
 
@@ -239,9 +246,9 @@ in the order they were sent."
   (should (my--llm-vterm-key-description-p "<f5>")))
 
 (ert-deftest my-llm-vterm-key-description-p-rejects-other-strings ()
-  "Prose and non-canonical spellings are rejected, not silently sent."
-  (should-not (my--llm-vterm-key-description-p "ctrl-x"))
-  (should-not (my--llm-vterm-key-description-p "C-x C-K"))
+  "Prose, non-canonical spellings and non-strings are rejected."
+  (dolist (key test-my-claude--non-key-descriptions)
+    (should-not (my--llm-vterm-key-description-p key)))
   (should-not (my--llm-vterm-key-description-p 5)))
 
 (ert-deftest my-llm-vterm-key-description-p-accepts-what-emacs-prints ()
@@ -425,6 +432,32 @@ captures ours as a parent.  Left there, a key dropped from
                                 (current-local-map))))
         (should-not (lookup-key (current-local-map) (kbd "C-c C-k"))))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-9")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-y")) #'ignore))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore)))))
+
+(ert-deftest my-llm-vterm-keymap-install-unlinks-ours-from-deep-in-the-chain ()
+  "Our old keymap is spliced out wherever it sits, not only one link up.
+Two packages, each deriving from what it found, bury ours two
+links deep."
+  (with-temp-buffer
+    (let ((base (make-sparse-keymap)))
+      (define-key base (kbd "C-c C-t") #'ignore)
+      (use-local-map base)
+      (my--llm-vterm-setup-keymap)
+      (let ((ours   (current-local-map))
+            (first  (make-sparse-keymap))
+            (second (make-sparse-keymap)))
+        (set-keymap-parent first (current-local-map))
+        (define-key first (kbd "C-c C-y") #'ignore)
+        (set-keymap-parent second first)
+        (define-key second (kbd "C-c C-u") #'ignore)
+        (use-local-map second)
+        (let ((my-llm-vterm-key-bindings '(("C-c C-9" . ignore))))
+          (my--llm-vterm-setup-keymap))
+        (should-not (memq ours (test-my-claude--keymap-chain
+                                (current-local-map))))
+        (should-not (lookup-key (current-local-map) (kbd "C-c C-k"))))
+      (should (eq (lookup-key (current-local-map) (kbd "C-c C-u")) #'ignore))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-y")) #'ignore))
       (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore)))))
 
