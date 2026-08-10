@@ -759,10 +759,10 @@ the chain.  Whatever our keymap was built over takes its place."
   "Return the local keymap our next install should be built over.
 Our own installed keymap is replaced rather than stacked upon, so
 what it was built over serves again; any other local map becomes
-the new base, once our earlier keymap is spliced out of it."
+the new base."
   (if (my--llm-vterm-keymap-installed-p)
       (keymap-parent my--llm-vterm-installed-keymap)
-    (my--llm-vterm-unlink-our-keymap (current-local-map))))
+    (current-local-map)))
 
 (defun my--llm-vterm-reinstall-keymaps ()
   "Reinstall our keymap in every buffer that still carries it.
@@ -811,6 +811,8 @@ Binds every entry of `my-llm-vterm-key-bindings' over whatever
 local map is not ours: our own keymap is replaced rather than
 stacked upon, and a map installed by anyone else becomes the base
 of this install rather than being discarded."
+  (unless (my--llm-vterm-keymap-installed-p)
+    (my--llm-vterm-unlink-our-keymap (current-local-map)))
   (let ((base (my--llm-vterm-keymap-base))
         (map  (make-sparse-keymap)))
     (set-keymap-parent map base)
