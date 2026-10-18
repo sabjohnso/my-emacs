@@ -20,7 +20,8 @@
   :ensure t
   :commands (vterm vterm-mode)
   :bind (:map vterm-mode-map
-         ("<f5>" . compile)))
+         ("<f5>" . compile)
+         ("<f11>" . toggle-frame-fullscreen)))
 
 (declare-function vterm-mode "vterm")
 (declare-function vterm-send-string "vterm")

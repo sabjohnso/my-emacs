@@ -158,6 +158,16 @@
   (should (string= (my--llm-vterm-full-command "codex" '("resume" "--last"))
                    "codex resume --last")))
 
+;;; --- vterm-mode-map key bindings ---
+
+(ert-deftest my-claude-vterm-f11-toggles-fullscreen ()
+  "F11 in a vterm buffer toggles fullscreen and is not sent to the terminal.
+Skipped when vterm is not on `load-path'; run with
+`-f package-initialize' to include it."
+  (skip-unless (require 'vterm nil t))
+  (should (eq (lookup-key vterm-mode-map (kbd "<f11>"))
+              #'toggle-frame-fullscreen)))
+
 ;;; --- Integration: server name is deterministic ---
 
 (ert-deftest my-claude-server-name-deterministic ()
