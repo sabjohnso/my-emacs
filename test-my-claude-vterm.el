@@ -3,7 +3,9 @@
 ;;; Commentary:
 ;;
 ;; Tests for the Emacs server management functions in my-claude-vterm.el.
-;; Run with: emacs --batch -L . -l test-my-claude-vterm.el -f ert-run-tests-batch-and-exit
+;; Run with: emacs --batch -L . -f package-initialize -l test-my-claude-vterm.el -f ert-run-tests-batch-and-exit
+;; Without `-f package-initialize', vterm is not found and the vterm
+;; key binding tests are skipped.
 
 ;;; Code:
 
