@@ -206,8 +206,11 @@ in the order they were sent."
   "Strings that name a key and must be accepted everywhere.")
 
 (defconst test-my-claude--non-key-descriptions
-  '("ctrl-x" "C-x C-K" "" 5 nil left [?\C-x])
-  "Values that name no key description and must be rejected everywhere.")
+  '("ctrl-x" "C-x C-K" "" " C-x C-k" "C-x C-k " "ESC g" 5 nil left [?\C-x])
+  "Values that every key check must reject.
+None is a key description in the form that `key-description' prints.
+Some name a real key in another spelling.  To accept a second
+spelling of the same key is a failure, not a convenience.")
 
 (defun test-my-claude--key-widget-matches (symbol key)
   "Return non-nil when SYMBOL's customization type accepts KEY."
@@ -412,6 +415,13 @@ silently drop the replacement's bindings."
       (setq map (keymap-parent map)))
     (nreverse chain)))
 
+(defun test-my-claude--should-be-same-keymaps (actual expected)
+  "Assert that ACTUAL and EXPECTED hold the same keymap objects in order.
+`equal' is not enough: it compares keymaps by their contents, so two
+different empty keymaps are `equal'."
+  (should (= (length actual) (length expected)))
+  (should (cl-every #'eq actual expected)))
+
 (defun test-my-claude--derive-keymap (key)
   "Install a keymap derived from the current local map, binding KEY.
 Models a package that keeps what it found by making the current
@@ -428,28 +438,39 @@ captures ours as a parent.  Left there, a key dropped from
 `my-llm-vterm-key-bindings' would still resolve through it, and
 an implementation that checked only the immediate parent would
 miss it as soon as a second package derived from the first."
-  (dolist (depth '(1 2 3 5))
-    (with-temp-buffer
-      (let ((base (make-sparse-keymap)))
-        (define-key base (kbd "C-c C-t") #'ignore)
-        (use-local-map base))
-      (my--llm-vterm-setup-keymap)
-      (let ((ours (current-local-map))
-            (keys nil))
-        (dotimes (i depth)
-          (let ((key (format "C-c %d" i)))
-            (push key keys)
-            (test-my-claude--derive-keymap key)))
-        (let ((my-llm-vterm-key-bindings '(("C-c C-9" . ignore))))
-          (my--llm-vterm-setup-keymap))
-        (should-not (memq ours (test-my-claude--keymap-chain
-                                (current-local-map))))
-        (should-not (lookup-key (current-local-map) (kbd "C-c C-k")))
-        (should (eq (lookup-key (current-local-map) (kbd "C-c C-9")) #'ignore))
-        (should (eq (lookup-key (current-local-map) (kbd "C-c C-t")) #'ignore))
-        (dolist (key keys)
-          (should (eq (lookup-key (current-local-map) (kbd key))
-                      #'ignore)))))))
+  (dolist (above '(0 1 2 3 5))
+    (dolist (below '(0 1 2 3))
+      (ert-info ((format "%d maps above ours, %d below" above below))
+        (with-temp-buffer
+          (use-local-map (make-sparse-keymap))
+          (dotimes (i below)
+            (test-my-claude--derive-keymap (format "C-c %d" i)))
+          (my--llm-vterm-setup-keymap)
+          (let ((ours (current-local-map)))
+            (dotimes (i above)
+              (test-my-claude--derive-keymap (format "C-c C-%d" i)))
+            (let ((chain (test-my-claude--keymap-chain (current-local-map)))
+                  ;; <f9> is outside the C-c keys that the derived maps bind.
+                  (my-llm-vterm-key-bindings '(("<f9>" . ignore))))
+              (my--llm-vterm-setup-keymap)
+              ;; Our keymap leaves the chain; everything else keeps its place.
+              (test-my-claude--should-be-same-keymaps
+               (test-my-claude--keymap-chain (current-local-map))
+               (cons (current-local-map) (remq ours chain))))
+            ;; C-c C-k is unbound: `lookup-key' gives nil, or 1 when no
+            ;; map makes C-c a prefix.
+            (let ((dropped (lookup-key (current-local-map) (kbd "C-c C-k"))))
+              (should (or (null dropped) (numberp dropped))))
+            (should (eq (lookup-key (current-local-map) (kbd "<f9>"))
+                        #'ignore))
+            (dotimes (i below)
+              (should (eq (lookup-key (current-local-map)
+                                      (kbd (format "C-c %d" i)))
+                          #'ignore)))
+            (dotimes (i above)
+              (should (eq (lookup-key (current-local-map)
+                                      (kbd (format "C-c C-%d" i)))
+                          #'ignore)))))))))
 
 (ert-deftest my-llm-vterm-keymap-install-bounds-the-parent-chain ()
   "Each derive-and-install cycle leaves one map behind, not two.
@@ -459,10 +480,8 @@ installed before it does not."
     (use-local-map (make-sparse-keymap))
     (my--llm-vterm-setup-keymap)
     (let ((depth (length (test-my-claude--keymap-chain (current-local-map)))))
-      (dotimes (_ 5)
-        (let ((derived (make-sparse-keymap)))
-          (set-keymap-parent derived (current-local-map))
-          (use-local-map derived))
+      (dotimes (i 5)
+        (test-my-claude--derive-keymap (format "C-c %d" i))
         (my--llm-vterm-setup-keymap))
       (should (= (length (test-my-claude--keymap-chain (current-local-map)))
                  (+ depth 5))))))
