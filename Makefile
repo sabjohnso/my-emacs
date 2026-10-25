@@ -24,9 +24,9 @@ BATCH_FULL = $(BATCH) \
   -L $(PCRE2EL_DIR) \
   $(PKG_INIT)
 
-COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el my-granule-mode.el
+COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el my-granule-mode.el my-reading-mode.el
 
-.PHONY: all compile test test-themes test-gptel test-claude-vterm
+.PHONY: all compile test test-themes test-gptel test-claude-vterm test-reading-mode
 
 all: compile
 
@@ -34,7 +34,7 @@ compile:
 	$(BATCH_FULL) $(patsubst %,-l %,$(COMPILE_FILES)) \
 	  --eval '(batch-byte-compile)' $(COMPILE_FILES)
 
-test: test-themes test-gptel test-claude-vterm
+test: test-themes test-gptel test-claude-vterm test-reading-mode
 
 test-themes:
 	$(BATCH) -l test-my-themes.el -f ert-run-tests-batch-and-exit
@@ -44,3 +44,6 @@ test-gptel:
 
 test-claude-vterm:
 	$(BATCH) -l test-my-claude-vterm.el -f ert-run-tests-batch-and-exit
+
+test-reading-mode:
+	$(BATCH) -l test-my-reading-mode.el -f ert-run-tests-batch-and-exit

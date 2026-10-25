@@ -958,6 +958,7 @@ commands to use in that buffer."
 (require 'my-racket-extras)
 (require 'my-common-lisp-extras)
 (require 'my-granule-mode)
+(require 'my-reading-mode)
 (require 'my-gptel)
 (require 'my-claude-vterm)
 
