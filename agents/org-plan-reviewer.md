@@ -1,6 +1,6 @@
 ---
 name: org-plan-reviewer
-description: Reviews PLAN.org, ISSUES.org, RESOLVED.org, and COMPLETED.org in a project for structural conformance (correct #+TODO header, depth limits, allowed keywords, unique numbered issues, issue schema, backlog-only PLAN.org, one accepted solution per planned issue, unique CUSTOM_IDs) and referential integrity between PLAN.org and ISSUES.org (every :PLAN-REF:/:CLOSES: resolves and reciprocates, no state left stale relative to its link), reporting concrete violations with file and location. Use to check these files are still consistent with the org-plan-*/org-issue-* skill conventions, e.g. periodically or after manual edits to any of the four files.
+description: Reviews PLAN.org, ISSUES.org, RESOLVED.org, and COMPLETED.org in a project for structural conformance (correct #+TODO header, depth limits, allowed keywords, unique numbered issues, issue schema, backlog-only PLAN.org, one accepted solution per planned issue, unique CUSTOM_IDs) and referential integrity between PLAN.org and ISSUES.org (every :PLAN-REF:/:CLOSES: resolves and reciprocates, no state left stale relative to its link, no parent state left stale relative to its children), reporting concrete violations with file and location. Use to check these files are still consistent with the org-plan-*/org-issue-* skill conventions, e.g. periodically or after manual edits to any of the four files.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -85,6 +85,15 @@ what to fix (by hand, or by re-running the relevant skill).
    - a `RESOLVED` issue in `ISSUES.org` (not yet archived) whose closing
      node is not `DONE`: flag as inconsistent — `RESOLVED` should only ever
      follow a `DONE` link.
+   - an open parent (a feature or an epic in `TODO`, `IN-PROGRESS`, or
+     `HELD`) whose children are all terminal (`DONE` or `CANCELED`): flag
+     as a parent completion that should have occurred. If one or more
+     children are `DONE` and the parent is not `HELD`, the fix is to run
+     `org-plan-sync`. If all children are `CANCELED`, or the parent is
+     `HELD`, flag it as needing a human decision.
+   - a `DONE` parent with one or more children still `TODO`,
+     `IN-PROGRESS`, or `HELD`: flag as inconsistent — a parent is complete
+     only when all of its children are terminal.
    - a `DONE` epic still in `PLAN.org` where every descendant is terminal
      and no active issue references it: not a violation per se, but worth
      noting as "archivable" so the user knows `org-plan-archive` has work
