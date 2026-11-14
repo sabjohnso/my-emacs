@@ -1,86 +1,117 @@
 ---
-description: Add an epic, feature, or task heading to PLAN.org at the correct depth, creating missing parent epic/feature headings as needed, assigning a unique CUSTOM_ID, and applying a theme tag if given. Use whenever new planned work — an epic, a feature under one, or a task under a feature — should be recorded in PLAN.org.
-argument-hint: "<epic|feature|task> \"<title>\" [under \"<parent title>\"] [:theme:]"
+description: Add an epic, feature, or task heading with its description to PLAN.org at the correct depth. Create missing parent epic and feature headings, assign a unique CUSTOM_ID, and apply a theme tag if one is given. Use when new planned work (an epic, a feature under an epic, or a task under a feature) must go in PLAN.org. Also use it for design work and for work that is not started, because these are not issues.
+argument-hint: "<epic|feature|task> \"<title>\" [under \"<parent title>\"] [:theme:] [\"<description>\"]"
 allowed-tools: Read, Edit, Write, Bash(grep:*), Bash(test:*)
 ---
 
 # Add a heading to PLAN.org
 
-Goal: record a new epic, feature, or task in `PLAN.org` at the right depth,
-following the file's fixed conventions, without disturbing existing
-headings.
+Goal: put a new epic, feature, or task in `PLAN.org` at the correct depth.
+Obey the conventions of the file. Do not change the headings that
+exist.
 
-## Backlog-only rule
+## Language
 
-`PLAN.org` is a backlog, not a design document. A heading carries a TODO
-keyword, a title, optional tags, and a `:PROPERTIES:` drawer — and **no
-body prose**. Do not write a paragraph explaining the objective under a
-heading; the rationale for a piece of work lives in the linked issue's
-`** Description` in `ISSUES.org`. If a task can't be understood from its
-title alone, that's a sign it needs an issue, not a plan comment.
+Write the title and the description in Simplified Technical English
+(ASD-STE100). Load the `communication:simplified-technical-english` skill
+before you write them.
+
+## Only backlog items
+
+`PLAN.org` is the backlog. It contains only epics, features, and tasks.
+Do not put these items in it:
+
+- Requirements. They go in `REQUIREMENTS.org`. A description can link to
+  a requirement.
+- Problems in code that exists. They go in `ISSUES.org` (see the
+  `org-issue-add` skill).
+- Design discussion, a comparison of alternatives, or status notes.
+
+Do not add a heading that has no TODO keyword.
+
+## Descriptions
+
+Each epic and each feature has a description. A task has a description
+only when its title is not sufficient.
+
+A description is plain text after the `:PROPERTIES:` drawer. It does
+two things:
+
+1. It states what the item delivers.
+2. It states when the item is complete.
+
+A description has 5 lines or fewer. If you need more lines, the text
+contains something that is not a description. Put a requirement in
+`REQUIREMENTS.org`. Link to it from the description. Divide a large item into child items.
+
+If the caller does not give a description for an epic or a feature,
+write one from the conversation. If the conversation does not tell you
+what the item delivers, ask the caller.
 
 ## Preconditions
 
-If `PLAN.org` doesn't exist yet at the project root, run the
-`org-plan-init` skill first — do not hand-roll a header here.
+If `PLAN.org` does not exist at the project root, run the `org-plan-init`
+skill first. Do not write a header here.
 
 ## Depth rules
 
-`PLAN.org` is a strict depth-3 tree: depth 1 = epic, depth 2 = feature,
-depth 3 = task. No labels like "Epic:"/"Feature:"/"Task:" are needed —
-depth alone conveys the level.
+`PLAN.org` is a tree with a maximum depth of 3: depth 1 is an epic,
+depth 2 is a feature, and depth 3 is a task. Do not use labels such as
+"Epic:", "Feature:", or "Task:". The depth shows the level.
 
-- Adding an **epic**: append a new depth-1 heading at the end of the file.
-- Adding a **feature**: requires a parent epic. If the named epic doesn't
-  exist yet, create it first (depth 1), then add the feature as its last
-  depth-2 child.
-- Adding a **task**: requires a parent feature (and transitively its epic).
-  Create any missing ancestor the same way, then add the task as the last
-  depth-3 child under that feature.
-- Refuse to create a heading deeper than depth 3 (e.g. a "sub-task" under a
-  task) — flag that this tree is depth-3 by design and suggest folding the
-  extra detail into the task's body text or splitting it into a sibling
-  task instead.
+- **Epic**: add a new depth-1 heading at the end of the file.
+- **Feature**: the feature must have a parent epic. If the epic does not
+  exist, create it first (with a description). Then add the feature as
+  the last depth-2 child of the epic.
+- **Task**: the task must have a parent feature and a parent epic. Create
+  each missing parent in the same way. Then add the task as the last
+  depth-3 child of the feature.
+- Do not create a heading at depth 4 or more. Tell the caller that the
+  tree has a maximum depth of 3. Recommend a sibling task, or a task
+  description, for the extra detail.
 
 ## CUSTOM_ID assignment
 
-Every heading gets a `:CUSTOM_ID:` property in a `:PROPERTIES:` drawer,
-slugged from the heading text (lowercase, hyphenated, punctuation stripped)
-and prefixed by level: `epic-<slug>`, `feature-<slug>`, `task-<slug>`.
+Each heading has a `:CUSTOM_ID:` property in a `:PROPERTIES:` drawer.
+Make a slug from the heading text. Use lowercase. Use hyphens between
+words. Remove punctuation. Add a prefix for the level: `epic-<slug>`,
+`feature-<slug>`, or `task-<slug>`.
 
-1. Before assigning, check for collisions across the whole file (and,
-   defensively, `COMPLETED.org` too, since an epic could have the same slug
-   as one already archived): `grep -o '^:CUSTOM_ID: .*' PLAN.org
-   COMPLETED.org` — anchored to line start so a mention of the string in
-   prose or a comment doesn't false-positive.
-2. If the slug collides, disambiguate with a numeric suffix (`-2`, `-3`, ...).
+1. Look for the same value in `PLAN.org` and `COMPLETED.org`, because an
+   archived epic can have the same slug:
+   `grep -o '^:CUSTOM_ID: .*' PLAN.org COMPLETED.org`.
+   The `^` anchor prevents a match on the text in a description or a
+   comment.
+2. If the slug exists, add a number suffix (`-2`, `-3`, and so on).
 
 ## New heading format
 
 ```
-*** TODO Audit use-package :defer usage                              :performance:
+** TODO Load themes on demand                                     :performance:
 :PROPERTIES:
-:CUSTOM_ID: task-audit-use-package-defer-usage
+:CUSTOM_ID: feature-load-themes-on-demand
 :END:
+Emacs loads a theme file only when the user selects that theme. The
+feature is complete when startup loads no theme file other than the
+default theme.
 ```
 
-New headings always start in the `TODO` state (or `TODO`-equivalent depth-1
-"open" state) — do not backdate a heading to `DONE`/`IN-PROGRESS` on
-creation. A theme tag is optional; apply it only if the caller specified
-one, as an ordinary org tag at the end of the headline.
+A new heading always starts in the `TODO` state. Do not give a new
+heading the `DONE` or `IN-PROGRESS` state. Add a theme tag only if the
+caller gives one. Put it as an org tag at the end of the headline.
 
-This skill does **not** add a `:CLOSES:` link tying a node to an issue —
-that cross-link is written by the `org-issue-plan` skill when an issue's fix
-is accepted. Use this skill for plain backlog headings that stand on their
-own; use `org-issue-plan` when the work exists to resolve a logged issue.
+This skill does not add a `:CLOSES:` link to an issue. The
+`org-issue-plan` skill adds that link when it accepts a solution to an
+issue. Use this skill for backlog items that are not related to an issue.
 
 ## Steps
 
-1. Confirm `PLAN.org` exists (see Preconditions).
-2. Determine the target depth and locate (or create) the required
-   ancestor(s), per the depth rules above.
-3. Slug and de-duplicate the `CUSTOM_ID` (see above).
-4. Insert the new heading as the last child at its level, preserving all
-   existing content and ordering.
-5. Report the heading added, its full path (epic > feature > task), and its
+1. Make sure that `PLAN.org` exists (see Preconditions).
+2. Make sure that the item is a backlog item (see Only backlog items).
+3. Find the depth, and find or create each parent (see Depth rules).
+4. Make the `CUSTOM_ID` and make sure that it is unique (see above).
+5. Write the description (see Descriptions).
+6. Add the new heading as the last child at its level. Keep all other
+   text and the order of the headings.
+7. Report the heading, its path (epic > feature > task), and its
    `CUSTOM_ID`.

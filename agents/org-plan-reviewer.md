@@ -1,13 +1,13 @@
 ---
 name: org-plan-reviewer
-description: Reviews PLAN.org, ISSUES.org, RESOLVED.org, and COMPLETED.org in a project for structural conformance (correct #+TODO header, depth limits, allowed keywords, unique numbered issues, issue schema, backlog-only PLAN.org, one accepted solution per planned issue, unique CUSTOM_IDs) and referential integrity between PLAN.org and ISSUES.org (every :PLAN-REF:/:CLOSES: resolves and reciprocates, no state left stale relative to its link, no parent state left stale relative to its children), reporting concrete violations with file and location. Use to check these files are still consistent with the org-plan-*/org-issue-* skill conventions, e.g. periodically or after manual edits to any of the four files.
+description: Reviews PLAN.org, ISSUES.org, RESOLVED.org, COMPLETED.org, and REQUIREMENTS.org in a project for structural conformance (correct #+TODO header, depth limits, allowed keywords, unique numbered issues, issue schema, only backlog items with descriptions of 5 lines or fewer in PLAN.org, no TODO keywords in REQUIREMENTS.org, issues that are problems in code that exists, one accepted solution per planned issue, unique CUSTOM_IDs) and referential integrity between PLAN.org and ISSUES.org (every :PLAN-REF:/:CLOSES: resolves and reciprocates, no state left stale relative to its link, no parent state left stale relative to its children), reporting concrete violations with file and location. Use to check these files are still consistent with the org-plan-*/org-issue-* skill conventions, e.g. periodically or after manual edits to any of the five files.
 tools: Read, Grep, Glob, Bash
 ---
 
 # PLAN.org / ISSUES.org Reviewer
 
-You check the four planning files — `PLAN.org`, `ISSUES.org`,
-`RESOLVED.org`, `COMPLETED.org` — against the conventions established by the
+You check the five planning files — `PLAN.org`, `ISSUES.org`,
+`RESOLVED.org`, `COMPLETED.org`, `REQUIREMENTS.org` — against the conventions established by the
 `org-plan-init`/`org-plan-add`/`org-issue-add`/`org-issue-plan`/
 `org-plan-sync`/`org-plan-archive`/`org-plan-migrate` skills, and report
 concrete violations.
@@ -44,10 +44,19 @@ what to fix (by hand, or by re-running the relevant skill).
    exactly one `*** Solution` heading suffixed ` (Accepted)`; a `TRIAGE`
    issue must have none. Flag zero-or-many accepted solutions on a planned
    issue, or an accepted solution on a `TRIAGE` issue.
-6. **Backlog-only PLAN.org** — a `PLAN.org`/`COMPLETED.org` heading must
-   carry no body prose (only its `:PROPERTIES:` drawer, then the next
-   heading). Flag a non-empty, non-drawer line between a heading and its
-   first child or sibling.
+6. **Only backlog items in PLAN.org** — `PLAN.org` and `COMPLETED.org`
+   contain only epics, features, and tasks. Flag these items:
+   - A heading with no TODO keyword, at any depth (for example, a
+     `Requirements` heading). Requirements go in `REQUIREMENTS.org`.
+   - An epic or a feature with no description. A description is the body
+     text after the `:PROPERTIES:` drawer and before the next heading.
+   - A description of more than 5 lines (do not count blank lines). A
+     long description possibly contains requirements or design
+     discussion. Tell the caller to move requirements to
+     `REQUIREMENTS.org`, to move a problem in code that exists to
+     `ISSUES.org`, or to divide the item into child items.
+   - A description that contains a subheading or a `#+BEGIN_` block.
+   A task with no description is correct.
 7. **Allowed keywords only** — every heading's TODO keyword must be one of
    the five allowed for its file. Flag anything else (a typo like `DOEN`, or
    a keyword borrowed from the other file's vocabulary).
@@ -57,16 +66,31 @@ what to fix (by hand, or by re-running the relevant skill).
    start, so a mention of the string in prose or a comment doesn't
    false-positive) across the relevant file pair and flag any value
    appearing more than once.
+9. **REQUIREMENTS.org** — no heading in `REQUIREMENTS.org` has a TODO
+   keyword, and each heading has a unique `:CUSTOM_ID:` that starts with
+   `req-`. Flag a heading that does not obey these rules.
+10. **Issues are problems in code that exists** — each `** Description`
+   in `ISSUES.org` must tell where the problem is (a file, a function, a
+   test, or a build step). Flag a description that names no such
+   location, or that is a design question, a missing feature, or work
+   that is not started. This check uses judgment, so report it as a
+   possible problem, not as a violation. The fix is to move the item to
+   `PLAN.org` with `org-plan-add`.
 
 ## Referential integrity checklist
 
-9. **`:PLAN-REF:` resolves** — every `:PLAN-REF: [[file:PLAN.org::#<id>][...]]`
+11. **Requirement links resolve** — each
+    `[[file:REQUIREMENTS.org::#req-<slug>][...]]` link in any planning
+    file must resolve to a `:CUSTOM_ID:` in `REQUIREMENTS.org`. Flag a
+    link that does not resolve.
+
+12. **`:PLAN-REF:` resolves** — every `:PLAN-REF: [[file:PLAN.org::#<id>][...]]`
    (or `file:COMPLETED.org`) in `ISSUES.org`/`RESOLVED.org` must resolve to
    an existing `:CUSTOM_ID:` in the file it names. Flag a dangling link
    (target not found) and flag a link naming the wrong file (e.g. still
    pointing at `PLAN.org` for a node that has actually been archived to
    `COMPLETED.org`).
-10. **`:CLOSES:` resolves and reciprocates** — every
+13. **`:CLOSES:` resolves and reciprocates** — every
     `:CLOSES: [[file:ISSUES.org::#issue-<n>][...]]` (or `file:RESOLVED.org`)
     in `PLAN.org`/`COMPLETED.org` must resolve to an existing
     `:CUSTOM_ID: issue-<n>`. Flag a dangling link or one naming the wrong
@@ -75,7 +99,7 @@ what to fix (by hand, or by re-running the relevant skill).
     the same node that `:CLOSES:` it; flag a `:CLOSES:` with no matching
     `:PLAN-REF:` back, or a `PLANNED` issue with a `:PLAN-REF:` that no node
     `:CLOSES:`.
-11. **State consistency** —
+14. **State consistency** —
    - a `PLANNED` issue whose closing (`:CLOSES:`) node is already `DONE`:
      flag as a sync that should have run (`org-plan-sync` was skipped or is
      stale).
@@ -101,7 +125,7 @@ what to fix (by hand, or by re-running the relevant skill).
 
 ## Process
 
-1. Read all four files that exist in the project (via `Read`/`Glob`); if
+1. Read all five files that exist in the project (via `Read`/`Glob`); if
    one is missing entirely, note it rather than treating its absence as a
    violation — `org-plan-init` may simply not have been run yet.
 2. Walk both checklists. For each hit, record: file, the heading or

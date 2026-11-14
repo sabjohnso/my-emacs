@@ -13,6 +13,12 @@ closing PLAN.org node `:CLOSES:` the issue; the issue `:PLAN-REF:`s back) so
 later tooling (`org-plan-sync`, `org-plan-archive`, `org-plan-reviewer`) can
 follow the relationship without re-deriving it.
 
+## Language
+
+Write all new text (solution titles, solution bodies, `PLAN.org` titles,
+and descriptions) in Simplified Technical English (ASD-STE100). Load the
+`communication:simplified-technical-english` skill before you write it.
+
 ## Preconditions
 
 Both `PLAN.org` and `ISSUES.org` must already exist (run `org-plan-init`
@@ -34,8 +40,10 @@ of creating a duplicate link.
 3. Add the PLAN.org node(s) for the accepted approach, using the exact same
    depth rules, `CUSTOM_ID` slugging, and collision-checking as the
    `org-plan-add` skill (reuse that logic rather than a different scheme —
-   the two files must stay consistent). PLAN.org nodes carry no body prose
-   (see `org-plan-add`); the rationale stays in the issue's `Description`.
+   the two files must stay consistent). Give each new epic and feature a
+   description, as the Descriptions section of `org-plan-add` specifies.
+   Do not copy the issue `Description` or the solution text into
+   `PLAN.org`. That text stays in the issue.
 4. Cross-link the two nodes. Choose the single PLAN.org node that, when
    `DONE`, means the issue is resolved — the *closing* node (for a
    multi-node fix this is the last/umbrella node, not every node):
