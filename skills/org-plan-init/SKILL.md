@@ -46,7 +46,7 @@ level. The user tells you when to track a planning file in a repository.
 2. If `PLAN.org` does not exist, create it with this text:
    ```
    #+TITLE: Plan
-   #+TODO: TODO(t) IN-PROGRESS(i) HELD(h) | DONE(d) CANCELED(c)
+   #+TODO: TODO(t) IN-PROGRESS(i) HELD(h) BLOCKED(b) | DONE(d) CANCELED(c)
 
    # This file is the backlog. It contains only epics, features, and
    # tasks. Requirements go in REQUIREMENTS.org. Problems in code that
@@ -62,6 +62,11 @@ level. The user tells you when to track a planning file in a repository.
    # the item is complete, in 5 lines or fewer. A description can link
    # to REQUIREMENTS.org. The node that closes an issue has a :CLOSES:
    # link to that issue. See the org-plan-add and org-issue-plan skills.
+   #
+   # An item that must wait for other items has a :BLOCKED-BY: property
+   # with a link to each blocker. The item is BLOCKED while one or more
+   # blockers are not DONE. When all its blockers are DONE, org-plan-sync
+   # sets the item to TODO. See the org-plan-depend skill.
    ```
 
 3. If `ISSUES.org` does not exist, create it with this text:
@@ -98,7 +103,7 @@ level. The user tells you when to track a planning file in a repository.
 5. If `COMPLETED.org` does not exist, create it with this text:
    ```
    #+TITLE: Completed work
-   #+TODO: TODO(t) IN-PROGRESS(i) HELD(h) | DONE(d) CANCELED(c)
+   #+TODO: TODO(t) IN-PROGRESS(i) HELD(h) BLOCKED(b) | DONE(d) CANCELED(c)
 
    # This file is the archive of DONE epics from PLAN.org. Add text at the end of
    # this file only. See the org-plan-archive skill.

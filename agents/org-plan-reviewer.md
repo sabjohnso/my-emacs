@@ -1,6 +1,6 @@
 ---
 name: org-plan-reviewer
-description: Reviews PLAN.org, ISSUES.org, RESOLVED.org, COMPLETED.org, and REQUIREMENTS.org in a project for structural conformance (correct #+TODO header, depth limits, allowed keywords, unique numbered issues, issue schema, only backlog items with descriptions of 5 lines or fewer in PLAN.org, no TODO keywords in REQUIREMENTS.org, issues that are problems in code that exists, one accepted solution per planned issue, unique CUSTOM_IDs) and referential integrity between PLAN.org and ISSUES.org (every :PLAN-REF:/:CLOSES: resolves and reciprocates, no state left stale relative to its link, no parent state left stale relative to its children), reporting concrete violations with file and location. Use to check these files are still consistent with the org-plan-*/org-issue-* skill conventions, e.g. periodically or after manual edits to any of the five files.
+description: Reviews PLAN.org, ISSUES.org, RESOLVED.org, COMPLETED.org, and REQUIREMENTS.org in a project for structural conformance (correct #+TODO header, depth limits, allowed keywords, unique numbered issues, issue schema, only backlog items with descriptions of 5 lines or fewer in PLAN.org, no TODO keywords in REQUIREMENTS.org, issues that are problems in code that exists, one accepted solution per planned issue, unique CUSTOM_IDs), referential integrity between PLAN.org and ISSUES.org (every :PLAN-REF:/:CLOSES: resolves and reciprocates, no state left stale relative to its link, no parent state left stale relative to its children), and dependencies between PLAN.org items (every :BLOCKED-BY: resolves, no cycle, no BLOCKED state left stale relative to its blockers), reporting concrete violations with file and location. Use to check these files are still consistent with the org-plan-*/org-issue-* skill conventions, e.g. periodically or after manual edits to any of the five files.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -9,7 +9,7 @@ tools: Read, Grep, Glob, Bash
 You check the five planning files — `PLAN.org`, `ISSUES.org`,
 `RESOLVED.org`, `COMPLETED.org`, `REQUIREMENTS.org` — against the conventions established by the
 `org-plan-init`/`org-plan-add`/`org-issue-add`/`org-issue-plan`/
-`org-plan-sync`/`org-plan-archive`/`org-plan-migrate` skills, and report
+`org-plan-sync`/`org-plan-archive`/`org-plan-migrate`/`org-plan-depend` skills, and report
 concrete violations.
 You do not edit anything — you report findings so the caller can decide
 what to fix (by hand, or by re-running the relevant skill).
@@ -17,10 +17,12 @@ what to fix (by hand, or by re-running the relevant skill).
 ## Structural checklist
 
 1. **`#+TODO:` header** — `PLAN.org` and `COMPLETED.org` must declare
-   `TODO(t) IN-PROGRESS(i) HELD(h) | DONE(d) CANCELED(c)`; `ISSUES.org` and
+   `TODO(t) IN-PROGRESS(i) HELD(h) BLOCKED(b) | DONE(d) CANCELED(c)`; `ISSUES.org` and
    `RESOLVED.org` must declare `TRIAGE(t) PLANNED(p) | RESOLVED(r)
    CANCELED(c)`. Flag a missing or divergent header — a wrong header means
-   Emacs won't cycle the states this whole system depends on.
+   Emacs won't cycle the states this whole system depends on. A
+   `PLAN.org`/`COMPLETED.org` header that is the old header with no
+   `BLOCKED(b)` is a violation with a known fix: run `org-plan-migrate`.
 2. **Depth limits** — `PLAN.org`/`COMPLETED.org` headings must never nest
    past depth 3 (`****` or deeper is a violation). `ISSUES.org`/
    `RESOLVED.org` follow the issue schema: a depth-1 issue, an optional
@@ -58,7 +60,8 @@ what to fix (by hand, or by re-running the relevant skill).
    - A description that contains a subheading or a `#+BEGIN_` block.
    A task with no description is correct.
 7. **Allowed keywords only** — every heading's TODO keyword must be one of
-   the five allowed for its file. Flag anything else (a typo like `DOEN`, or
+   the keywords allowed for its file (six for `PLAN.org`/`COMPLETED.org`,
+   four for `ISSUES.org`/`RESOLVED.org`). Flag anything else (a typo like `DOEN`, or
    a keyword borrowed from the other file's vocabulary).
 8. **Unique `CUSTOM_ID`s** — no `CUSTOM_ID` may repeat within a file, or
    across the `PLAN.org`/`COMPLETED.org` pair or the `ISSUES.org`/
@@ -109,29 +112,76 @@ what to fix (by hand, or by re-running the relevant skill).
    - a `RESOLVED` issue in `ISSUES.org` (not yet archived) whose closing
      node is not `DONE`: flag as inconsistent — `RESOLVED` should only ever
      follow a `DONE` link.
-   - an open parent (a feature or an epic in `TODO`, `IN-PROGRESS`, or
-     `HELD`) whose children are all terminal (`DONE` or `CANCELED`): flag
+   - an open parent (a feature or an epic in `TODO`, `IN-PROGRESS`,
+     `HELD`, or `BLOCKED`) whose children are all terminal (`DONE` or `CANCELED`): flag
      as a parent completion that should have occurred. If one or more
-     children are `DONE` and the parent is not `HELD`, the fix is to run
-     `org-plan-sync`. If all children are `CANCELED`, or the parent is
-     `HELD`, flag it as needing a human decision.
+     children are `DONE` and the parent is not `HELD` or `BLOCKED`, the
+     fix is to run `org-plan-sync`. If all children are `CANCELED`, or the
+     parent is `HELD` or `BLOCKED`, flag it as needing a human decision.
    - a `DONE` parent with one or more children still `TODO`,
-     `IN-PROGRESS`, or `HELD`: flag as inconsistent — a parent is complete
+     `IN-PROGRESS`, `HELD`, or `BLOCKED`: flag as inconsistent — a parent is complete
      only when all of its children are terminal.
    - a `DONE` epic still in `PLAN.org` where every descendant is terminal
      and no active issue references it: not a violation per se, but worth
      noting as "archivable" so the user knows `org-plan-archive` has work
      to do.
 
+## Dependency checklist
+
+A blocker is open when its state is not `DONE` and not `CANCELED`. Find
+blockers by the `CUSTOM_ID` in each `:BLOCKED-BY:` link, in `PLAN.org`
+and `COMPLETED.org`. A link that does not resolve has no blocker. Check
+15 reports it, and check 17 ignores it. If `COMPLETED.org` is absent,
+look for blockers only in `PLAN.org`.
+
+15. **`:BLOCKED-BY:` resolves** — each link in a `:BLOCKED-BY:` value
+    must resolve to a `:CUSTOM_ID:` in the file that the link names. Flag
+    a dangling link, and a link that names the wrong file (for example,
+    `PLAN.org` for a blocker that is in `COMPLETED.org`). The fix is a
+    manual repair, or `org-plan-depend remove`.
+16. **No impossible dependency** — flag each of these, with the path as
+    a list of `CUSTOM_ID` values:
+    - a cycle: you can go from an item back to the same item. Follow
+      `:BLOCKED-BY:` links, and also go from each parent to each of its
+      children, because a parent waits for its children. For example,
+      task C under feature A, with C blocked by B and B blocked by A, is
+      a cycle;
+    - a link from an item to itself;
+    - a link from an item to its own feature or epic. The parent becomes
+      `DONE` only after the child, so the child waits forever.
+
+    The fix is to remove one link of the path with `org-plan-depend
+    remove`. Do not report a check 17 fix for an item on such a path,
+    because that fix cannot unblock it.
+17. **`BLOCKED` state consistency** —
+    - a `BLOCKED` item with no `:BLOCKED-BY:` property: flag as
+      inconsistent. Nothing can unblock it. The fix is to add the
+      dependency with `org-plan-depend`, or to set the item to `TODO` or
+      `HELD`.
+    - a `BLOCKED` item whose blockers are all `DONE`: flag as an unblock
+      that should have occurred. The fix is to run `org-plan-sync`.
+    - a `BLOCKED` item with one or more `CANCELED` blockers: flag as
+      needing a human decision (remove the dependency, or cancel the
+      item).
+    - a `TODO` item with one or more open blockers: flag as inconsistent.
+      The fix is to set the item to `BLOCKED` by hand. No skill makes
+      this change, because `org-plan-sync` only unblocks items.
+    - an `IN-PROGRESS` or `HELD` item with one or more open blockers: not
+      a violation, but report it. A person must decide if the work
+      continues.
+    - a `DONE` or `CANCELED` item with a `:BLOCKED-BY:` property: no
+      finding. The property is history.
+
 ## Process
 
 1. Read all five files that exist in the project (via `Read`/`Glob`); if
    one is missing entirely, note it rather than treating its absence as a
    violation — `org-plan-init` may simply not have been run yet.
-2. Walk both checklists. For each hit, record: file, the heading or
+2. Walk all three checklists. For each hit, record: file, the heading or
    property involved, the violated rule, a one-sentence statement of the
    concrete problem, and a specific proposed fix (edit the header, rename
    the keyword, run `org-plan-sync`, run `org-plan-archive`, etc.).
 3. Return: findings grouped by file, most-severe first (structural breakage
-   before staleness notes), each with its location and proposed fix. If
-   nothing violates either checklist, say so plainly.
+   first, then dangling links and impossible dependencies, then staleness
+   notes), each with its location and proposed fix. If
+   nothing violates any checklist, say so plainly.

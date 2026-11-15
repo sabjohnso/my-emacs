@@ -100,6 +100,10 @@ A new heading always starts in the `TODO` state. Do not give a new
 heading the `DONE` or `IN-PROGRESS` state. Add a theme tag only if the
 caller gives one. Put it as an org tag at the end of the headline.
 
+If the new item must wait for other items, use the `org-plan-depend`
+skill after this skill. It adds the `:BLOCKED-BY:` link and sets the
+state.
+
 This skill does not add a `:CLOSES:` link to an issue. The
 `org-issue-plan` skill adds that link when it accepts a solution to an
 issue. Use this skill for backlog items that are not related to an issue.

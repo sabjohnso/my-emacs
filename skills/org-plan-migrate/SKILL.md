@@ -21,7 +21,8 @@ issue.
 
 Run this once per project when its files predate the new format. Also run
 it on a project that has numbered issues but has requirements in
-`PLAN.org`, or has epics and features with no descriptions. It is not part
+`PLAN.org`, or has epics and features with no descriptions, or has a
+`PLAN.org` or `COMPLETED.org` header with no `BLOCKED(b)`. It is not part
 of the normal `add`/`plan`/`sync`/`archive` cycle.
 
 ## Language
@@ -39,9 +40,10 @@ Do not rewrite text that exists only to change its language.
    RESOLVED.org`) or any `:CLOSES:` property
    (`grep -q '^:CLOSES:' PLAN.org COMPLETED.org`). If either is present,
    the issues are already numbered. Skip steps 2, 3, 4, and 7, and do
-   steps 5, 6, and 8 only. Steps 5 and 6 are safe to do again: after
-   step 5, `PLAN.org` has no requirements to move, and step 6 changes
-   nothing.
+   steps 5, 6, 8, and 9 only. Steps 5, 6, and 8 are safe to do again:
+   after step 5, `PLAN.org` has no requirements to move, step 6 changes
+   nothing, and step 8 changes only a header that does not have
+   `BLOCKED(b)`.
 2. **Back up first.** Copy each file this skill will touch to
    `<name>.org.pre-migrate` before editing (`cp -n`, so an existing backup
    from a prior aborted run is not clobbered). Mention the backups in the
@@ -118,7 +120,15 @@ every link rewrite below keys off it.
    any moved `file:` component using the recorded id mapping, so
    `:PLAN-REF:`/`:CLOSES:` still reciprocate and resolve after renumbering.
 
-8. **Report:**
+8. **Add the `BLOCKED` keyword.** If the `#+TODO:` line of `PLAN.org` or
+   `COMPLETED.org` is `#+TODO: TODO(t) IN-PROGRESS(i) HELD(h) | DONE(d)
+   CANCELED(c)`, change it to `#+TODO: TODO(t) IN-PROGRESS(i) HELD(h)
+   BLOCKED(b) | DONE(d) CANCELED(c)`. If the `PLAN.org` header comment
+   has no paragraph about `:BLOCKED-BY:`, add the paragraph that
+   `org-plan-init` writes. Do not change a header that has other
+   differences. Report it for a person to repair.
+
+9. **Report:**
    - the old-slug → `issue-<n>` mapping for every issue,
    - which issues got an `(Accepted)` solution and which need a human to
      mark one,
@@ -127,6 +137,8 @@ every link rewrite below keys off it.
    - each heading moved to `REQUIREMENTS.org`,
    - each issue that is not a problem in code that exists,
    - any redundant `:ISSUE-REF:` dropped,
+   - each header that got `BLOCKED(b)`, and each header that has other
+     differences,
    - the backup files written.
 
 ## After migrating

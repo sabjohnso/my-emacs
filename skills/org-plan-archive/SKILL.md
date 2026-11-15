@@ -8,7 +8,7 @@ allowed-tools: Read, Edit, Write, Bash(grep:*), Bash(test:*)
 Goal: the periodic cleanup pass CLAUDE.md describes — move finished work out
 of the active `PLAN.org`/`ISSUES.org` files and into their append-only
 archives, `COMPLETED.org` and `RESOLVED.org`, without breaking any
-`:PLAN-REF:`/`:CLOSES:` link in the process.
+`:PLAN-REF:`/`:CLOSES:`/`:BLOCKED-BY:` link in the process.
 
 ## Preconditions
 
@@ -30,7 +30,7 @@ All four files must exist — run `org-plan-init` first if any are missing.
    - its own state is `DONE`, **and**
    - every depth-2/depth-3 descendant under it is `DONE` or `CANCELED`
      (mixed terminal states are fine; anything still `TODO`/`IN-PROGRESS`/
-     `HELD` blocks the whole epic from archiving), **and**
+     `HELD`/`BLOCKED` blocks the whole epic from archiving), **and**
    - no `CUSTOM_ID` anywhere in that epic's subtree is `:CLOSES:`-ing (or is
      the `:PLAN-REF:` target of) an ISSUES.org heading still in `TRIAGE` or
      `PLANNED` state (check this *after* step 1's sync, using the same
@@ -60,6 +60,12 @@ All four files must exist — run `org-plan-init` first if any are missing.
    (This includes the case where a fix is `DONE` and archived but its issue
    is not: the archived node's `:CLOSES:` still names `ISSUES.org`, which is
    correct — leave it.)
+
+   Rewrite the `:BLOCKED-BY:` links in a different way. For every
+   `:BLOCKED-BY:` link in `PLAN.org` or `COMPLETED.org` whose blocker
+   moved to `COMPLETED.org` in step 5, change `file:PLAN.org` to
+   `file:COMPLETED.org`. Do this also when the item stays in `PLAN.org`.
+   An item that stays can still name the archived blocker.
 
 7. **Report** exactly what moved (issue → `RESOLVED.org`, epic →
    `COMPLETED.org`), what links were rewritten, what was skipped and why,
