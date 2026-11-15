@@ -39,38 +39,44 @@ manifest-field = $(or $(shell jq -er '$(1)' $(MARKETPLACE_JSON) 2>/dev/null),\
   $(error No $(1) in $(MARKETPLACE_JSON)))
 
 .PHONY: all compile test test-themes test-gptel test-claude-vterm test-reading-mode
-.PHONY: test-plugin-make plugin-install plugin-update
+.PHONY: test-plugin-make plugin-install plugin-update help
 
-all: compile
+all: compile ## Byte-compile the Emacs Lisp files (default)
 
-compile:
+compile: ## Byte-compile the Emacs Lisp files
 	$(BATCH_FULL) $(patsubst %,-l %,$(COMPILE_FILES)) \
 	  --eval '(batch-byte-compile)' $(COMPILE_FILES)
 
-test: test-themes test-gptel test-claude-vterm test-reading-mode test-plugin-make
+test: test-themes test-gptel test-claude-vterm test-reading-mode test-plugin-make ## Run all tests
 
-test-themes:
+test-themes: ## Run the theme tests
 	$(BATCH) -l test-my-themes.el -f ert-run-tests-batch-and-exit
 
-test-gptel:
+test-gptel: ## Run the GPTel tests
 	$(BATCH_FULL) -l test-my-gptel.el -f ert-run-tests-batch-and-exit
 
-test-claude-vterm:
+test-claude-vterm: ## Run the Claude vterm tests
 	$(BATCH) -l test-my-claude-vterm.el -f ert-run-tests-batch-and-exit
 
-test-reading-mode:
+test-reading-mode: ## Run the reading mode tests
 	$(BATCH) -l test-my-reading-mode.el -f ert-run-tests-batch-and-exit
 
-test-plugin-make:
+test-plugin-make: ## Run the Makefile tests
 	./test-plugin-make.sh
 
 # Register this repository as a marketplace, then install its plugin.
-plugin-install:
+plugin-install: ## Install the Claude Code plugin
 	$(CLAUDE) plugin marketplace add $(CURDIR)
 	$(CLAUDE) plugin install --scope user $(PLUGIN_ID)
 
 # Read the marketplace again from this repository, then update the plugin.
 # Claude Code applies the update after a restart.
-plugin-update:
+plugin-update: ## Update the Claude Code plugin
 	$(CLAUDE) plugin marketplace update $(MARKETPLACE)
 	$(CLAUDE) plugin update --scope user $(PLUGIN_ID)
+
+# List each target that has a "## description" comment on its rule line.
+# To add a target to this list, put such a comment on its rule line.
+help:
+	@awk -F ':.*## ' '/^[A-Za-z0-9_-]+:.*## / { printf "  %-20s %s\n", $$1, $$2 }' \
+	  $(MAKEFILE_LIST)

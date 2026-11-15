@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Tests for the plugin-install and plugin-update targets of the Makefile.
-# The tests use "make -n", so they do not change the Claude Code configuration.
+# Tests for the help, plugin-install, and plugin-update targets of the Makefile.
+# The tests use "make -n" or "make help", so they do not change the Claude Code
+# configuration.
 set -u
 
 failures=0
@@ -34,8 +35,44 @@ test_missing_name_stops_make() {
   fi
 }
 
+# The phony targets that make reads from the Makefile, one on each line.
+phony_targets() {
+  make -pRrq -f Makefile : 2>/dev/null \
+    | sed -n 's/^\.PHONY: //p' | tr ' ' '\n' | grep -v '^$' | sort -u
+}
+
+test_help_lists_each_other_target_with_a_description() {
+  local help missing="" target targets
+  help=$(make -s help 2>&1)
+  targets=$(phony_targets | grep -vx help)
+  [[ -n "$targets" ]] || missing="no phony targets found "
+  for target in $targets; do
+    grep -Eq "^  $target +[^ ]" <<<"$help" || missing+="$target "
+  done
+  check "help lists each other target with a description" "" "$missing"
+}
+
+test_help_does_not_list_itself() {
+  if grep -Eq '^  help ' <<<"$(make -s help 2>&1)"; then
+    check "help does not list itself" "absent" "present"
+  else
+    check "help does not list itself" "absent" "absent"
+  fi
+}
+
+test_help_does_not_read_the_manifest() {
+  if make -s help MARKETPLACE_JSON=/dev/null >/dev/null 2>&1; then
+    check "help does not read the manifest" "make succeeds" "make succeeds"
+  else
+    check "help does not read the manifest" "make succeeds" "make fails"
+  fi
+}
+
 test_dry_run_prints_the_cli_commands
 test_missing_name_stops_make
+test_help_lists_each_other_target_with_a_description
+test_help_does_not_list_itself
+test_help_does_not_read_the_manifest
 
-echo "Ran 2 tests, $failures unexpected"
+echo "Ran 5 tests, $failures unexpected"
 exit $((failures > 0))
