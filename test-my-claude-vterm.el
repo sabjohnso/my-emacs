@@ -169,6 +169,115 @@ split or interpreted there."
   (should (string= (my--llm-vterm-full-command "codex" '("resume" "--last"))
                    "codex resume --last")))
 
+;;; --- vterm scrollback ---
+
+(ert-deftest my-claude-vterm-max-scrollback ()
+  "vterm keeps the largest scrollback that its module allows.
+The value takes effect when vterm loads, so the test skips
+without vterm."
+  (skip-unless (require 'vterm nil t))
+  (should (= vterm-max-scrollback 100000)))
+
+;;; --- my--llm-env ---
+
+(ert-deftest my-llm-env-claude-disables-alternate-screen ()
+  "Claude runs on the main screen, so vterm keeps its output in scrollback."
+  (should (member "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1"
+                  (my--llm-env "claude"))))
+
+(ert-deftest my-llm-env-codex ()
+  "Codex needs no extra environment variables."
+  (should (null (my--llm-env "codex"))))
+
+(ert-deftest my-llm-env-unknown-command ()
+  "An unrecognized command has no extra environment variables."
+  (should (null (my--llm-env "foo"))))
+
+(ert-deftest my-llm-env-quotes-values ()
+  "A value that holds shell metacharacters is quoted in its assignment."
+  (let ((my--llm-env-alist '(("tool" . (("FOO" . "a b;c"))))))
+    (should (equal (my--llm-env "tool")
+                   (list (concat "FOO=" (shell-quote-argument "a b;c")))))))
+
+;;; --- Generators for the property tests ---
+
+(defconst test-my-claude--seed "test-my-claude-vterm"
+  "Seed for `random', so that a failed property test can be replayed.")
+
+(defconst test-my-claude--cases 200
+  "Number of random cases that each property test checks.")
+
+(defun test-my-claude--random-string ()
+  "Return a random string of 0 to 6 characters, some of them special."
+  (let ((chars "ab =;'\"$x-"))
+    (apply #'string
+           (cl-loop repeat (random 7)
+                    collect (aref chars (random (length chars)))))))
+
+(defun test-my-claude--random-command ()
+  "Return a known LLM command name or a random string."
+  (let ((known (append (mapcar #'car my--llm-env-alist) '("codex" "foo"))))
+    (if (zerop (random 4))
+        (test-my-claude--random-string)
+      (nth (random (length known)) known))))
+
+(defun test-my-claude--random-args ()
+  "Return a list of 0 to 5 random argument strings."
+  (cl-loop repeat (random 6) collect (test-my-claude--random-string)))
+
+(defmacro test-my-claude--for-random-cases (bindings &rest body)
+  "Run BODY for each random case, with BINDINGS as in `let*'."
+  (declare (indent 1))
+  `(progn
+     (random test-my-claude--seed)
+     (dotimes (_ test-my-claude--cases)
+       (let* ,bindings ,@body))))
+
+;;; --- my--llm-vterm-launch-command ---
+
+(ert-deftest my-llm-vterm-launch-command-claude ()
+  "The Claude launch command puts its environment before the command."
+  (should (string= (my--llm-vterm-launch-command "claude" '("--continue"))
+                   "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude --continue")))
+
+(ert-deftest my-llm-vterm-launch-command-without-env ()
+  "A command with no environment launches as its full command."
+  (should (string= (my--llm-vterm-launch-command "codex" '("resume" "--last"))
+                   (my--llm-vterm-full-command "codex" '("resume" "--last")))))
+
+(ert-deftest my-llm-vterm-launch-command-laws ()
+  "The environment comes first and the full command follows it unchanged."
+  (test-my-claude--for-random-cases
+      ((command (test-my-claude--random-command))
+       (args    (test-my-claude--random-args))
+       (env     (my--llm-env command))
+       (full    (my--llm-vterm-full-command command args))
+       (launch  (my--llm-vterm-launch-command command args)))
+    (should (string-suffix-p full launch))
+    (if env
+        (should (string-prefix-p (concat (string-join env " ") " ") launch))
+      (should (string= launch full)))))
+
+;;; --- my--llm-vterm-shell-line ---
+
+(ert-deftest my-llm-vterm-shell-line-claude ()
+  "The shell line sets the server socket, then the Claude environment."
+  (should (string= (my--llm-vterm-shell-line "claude" nil "srv")
+                   (concat "EMACS_SOCKET_NAME=srv "
+                           "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 claude"))))
+
+(ert-deftest my-llm-vterm-shell-line-laws ()
+  "The shell line is the server assignment in front of the launch command."
+  (test-my-claude--for-random-cases
+      ((command (test-my-claude--random-command))
+       (args    (test-my-claude--random-args))
+       (server  (concat "claude-" (test-my-claude--random-string)))
+       (line    (my--llm-vterm-shell-line command args server)))
+    (should (string= line
+                     (concat "EMACS_SOCKET_NAME="
+                             (shell-quote-argument server) " "
+                             (my--llm-vterm-launch-command command args))))))
+
 ;;; --- Key forwarding (keys Emacs intercepts before vterm) ---
 
 (defmacro test-my-claude--recording-sends (var &rest body)

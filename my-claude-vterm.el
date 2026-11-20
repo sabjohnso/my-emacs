@@ -19,6 +19,10 @@
 (use-package vterm
   :ensure t
   :commands (vterm vterm-mode)
+  :custom
+  ;; Keep long Claude conversations in the scrollback.  100000 is the
+  ;; largest value that the vterm module accepts (SB_MAX).
+  (vterm-max-scrollback 100000)
   :bind (:map vterm-mode-map
          ("<f5>" . compile)
          ("<f11>" . toggle-frame-fullscreen)))
@@ -60,6 +64,33 @@ resume its most recent session for the current directory.")
 (defun my--llm-resume-args (command)
   "Return the resume arguments for COMMAND, or nil if COMMAND is unknown."
   (cdr (assoc command my--llm-resume-args-alist)))
+
+(defconst my--llm-env-alist
+  '(("claude" . (("CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" . "1"))))
+  "Alist mapping an LLM command name to the environment variables
+that the command gets when it starts in vterm.  Each variable is
+a (NAME . VALUE) pair.
+
+Claude Code draws on the alternate screen by default.  vterm does
+not keep alternate-screen output in its scrollback, so the
+conversation cannot be scrolled back.  The classic renderer draws
+on the main screen and the output goes into the scrollback.")
+
+(defun my--llm-env (command)
+  "Return the shell assignments for the environment of COMMAND.
+Each assignment is a NAME=VALUE string with VALUE quoted for the
+shell.  Return nil if COMMAND needs no environment variables."
+  (mapcar (lambda (variable)
+            (concat (car variable) "=" (shell-quote-argument (cdr variable))))
+          (cdr (assoc command my--llm-env-alist))))
+
+(defun my--llm-vterm-launch-command (command extra-args)
+  "Return the shell command that starts COMMAND with EXTRA-ARGS.
+The environment assignments from `my--llm-env' come first."
+  (mapconcat #'identity
+             (append (my--llm-env command)
+                     (list (my--llm-vterm-full-command command extra-args)))
+             " "))
 
 (defun my--llm-vterm-full-command (command extra-args)
   "Return the shell command string for COMMAND with EXTRA-ARGS appended."
@@ -215,6 +246,13 @@ back via emacsclient."
         (pop-to-buffer buf-name)
       (my--llm-vterm-create-buffer buf-name command))))
 
+(defun my--llm-vterm-shell-line (command extra-args server-name)
+  "Return the shell line that starts COMMAND with EXTRA-ARGS in vterm.
+The line tells COMMAND the Emacs server SERVER-NAME and sets the
+environment from `my--llm-env'."
+  (my--claude-make-command (my--llm-vterm-launch-command command extra-args)
+                           server-name))
+
 (defun my--llm-vterm-session ()
   "Return a plist recording the LLM session in the current buffer."
   (list :command   my--llm-vterm-command
@@ -242,10 +280,9 @@ EXTRA-ARGS, if non-nil, is a list of extra command-line arguments
 appended to COMMAND (for example, to resume a prior session).
 Uses `default-directory' as the buffer's working directory."
   (require 'vterm)
-  (let* ((server       (my--claude-ensure-server))
-         (full-command (my--llm-vterm-full-command command extra-args))
-         (shell-cmd    (my--claude-make-command full-command server))
-         (buf          (generate-new-buffer buf-name)))
+  (let* ((shell-cmd (my--llm-vterm-shell-line
+                     command extra-args (my--claude-ensure-server)))
+         (buf       (generate-new-buffer buf-name)))
     (with-current-buffer buf
       (vterm-mode)
       (setq-local my--llm-vterm-command command)
