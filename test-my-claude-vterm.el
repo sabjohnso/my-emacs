@@ -727,6 +727,231 @@ buffer it killed and passes that command's resume arguments."
       (kill-buffer buf))
     (should-not created)))
 
+;;; --- Prompt visibility (follow the prompt when a window shows vterm) ---
+
+(defmacro test-my-claude--with-terminal (lines cursor &rest body)
+  "Run BODY in the selected window, in a buffer that stands for a terminal.
+The buffer holds LINES numbered lines, and it ends with a newline
+as a vterm buffer does.  The terminal cursor is on the line
+CURSOR.  The window shows the top of the buffer."
+  (declare (indent 2) (debug t))
+  `(save-window-excursion
+     (delete-other-windows)
+     (with-temp-buffer
+       (dotimes (i ,lines) (insert (format "%d\n" (1+ i))))
+       (goto-char (point-min))
+       (test-my-claude--show-top (selected-window) (current-buffer))
+       (cl-letf (((symbol-function 'vterm-reset-cursor-point)
+                  (lambda ()
+                    (goto-char (point-min))
+                    (forward-line (1- ,cursor)))))
+         ,@body))))
+
+(defun test-my-claude--show-top (window buffer)
+  "Show the top of BUFFER in WINDOW."
+  (set-window-buffer window buffer)
+  (set-window-start window (with-current-buffer buffer (point-min)))
+  (set-window-point window (with-current-buffer buffer (point-min))))
+
+(defun test-my-claude--window-lines (window)
+  "Return the start line and the point line of WINDOW."
+  (with-current-buffer (window-buffer window)
+    (list (line-number-at-pos (window-start window))
+          (line-number-at-pos (window-point window)))))
+
+(defun test-my-claude--prompt-lines (window lines cursor)
+  "Return the lines that WINDOW must have when it shows the prompt.
+The terminal has LINES lines and its cursor is on the line CURSOR."
+  (list (max 1 (- (1+ lines) (window-body-height window))) cursor))
+
+(defun test-my-claude--split-window ()
+  "Split the selected window at a random height and return the new window."
+  (let ((spare (- (window-total-height) (* 2 window-min-height))))
+    (split-window nil (- (+ window-min-height (random (1+ spare)))))))
+
+(ert-deftest my-vterm-last-rows-start-laws ()
+  "The last rows start at the start of a line.
+The text from there to the end holds ROWS lines, or the whole
+buffer if the buffer is shorter.  A final newline does not start
+another row.  The point does not move."
+  (test-my-claude--for-random-cases
+      ((lines (1+ (random 100)))
+       (rows  (1+ (random 60)))
+       (final (nth (random 2) '("" "\n"))))
+    (with-temp-buffer
+      (insert (string-join (make-list lines "x") "\n") final)
+      (goto-char (1+ (random (point-max))))
+      (let* ((point (point))
+             (start (my--vterm-last-rows-start rows)))
+        (should (= (point) point))
+        (should (= (count-lines start (point-max)) (min lines rows)))
+        (goto-char start)
+        (should (bolp))))))
+
+(ert-deftest my-vterm-show-prompt-laws ()
+  "The window shows the cursor and the last rows, and no other window moves.
+This is true for a selected window and for another window, from
+any current buffer.  A second call changes nothing."
+  (test-my-claude--for-random-cases
+      ((lines  (1+ (random 100)))
+       (cursor (1+ (random lines))))
+    (test-my-claude--with-terminal lines cursor
+      (let* ((buffer  (current-buffer))
+             (windows (list (selected-window) (test-my-claude--split-window)))
+             (shown   (nth (random 2) windows))
+             (other   (car (remq shown windows))))
+        (test-my-claude--show-top (cadr windows) buffer)
+        (dotimes (_ 2)
+          (with-temp-buffer (my--vterm-show-prompt shown))
+          (should (equal (test-my-claude--window-lines shown)
+                         (test-my-claude--prompt-lines shown lines cursor)))
+          (should (equal (test-my-claude--window-lines other) '(1 1))))))))
+
+(ert-deftest my-vterm-show-prompt-does-nothing-in-copy-mode ()
+  "Copy mode does not change the window position."
+  (test-my-claude--with-terminal 300 294
+    (setq-local vterm-copy-mode t)
+    (my--vterm-show-prompt (selected-window))
+    (should (equal (test-my-claude--window-lines (selected-window)) '(1 1)))))
+
+(defmacro test-my-claude--with-followed-terminal (window &rest body)
+  "Run BODY with WINDOW bound to a window that shows a vterm buffer.
+The buffer has 300 lines and the cursor is on the line 294.  Only
+`vterm-mode-hook' prepares the buffer, as it does for each vterm
+buffer."
+  (declare (indent 1) (debug (symbolp body)))
+  `(test-my-claude--with-terminal 300 294
+     (let ((,window (selected-window))
+           (my--vterm-minibuffer-opener nil))
+       (run-hooks 'vterm-mode-hook)
+       ,@body)))
+
+(defun test-my-claude--shows-prompt-p (window)
+  "Return non-nil if WINDOW shows the prompt of a followed terminal."
+  (equal (test-my-claude--window-lines window)
+         (test-my-claude--prompt-lines window 300 294)))
+
+(defun test-my-claude--selection-change (window old-selected)
+  "Run `window-selection-change-functions' for WINDOW in its buffer.
+Make `old-selected-window' return OLD-SELECTED."
+  (cl-letf (((symbol-function 'old-selected-window) (lambda () old-selected)))
+    (with-current-buffer (window-buffer window)
+      (run-hook-with-args 'window-selection-change-functions window))))
+
+(defun test-my-claude--open-minibuffer (window)
+  "Run `minibuffer-setup-hook' as if WINDOW opened the minibuffer."
+  (cl-letf (((symbol-function 'minibuffer-selected-window)
+             (lambda () window)))
+    (run-hooks 'minibuffer-setup-hook)))
+
+(ert-deftest my-vterm-prompt-shows-when-a-window-gets-the-buffer ()
+  "A window that gets the buffer shows the prompt."
+  (test-my-claude--with-followed-terminal window
+    (run-hook-with-args 'window-buffer-change-functions window)
+    (should (test-my-claude--shows-prompt-p window))))
+
+(ert-deftest my-vterm-prompt-shows-when-the-window-is-selected ()
+  "A window that becomes the selected window shows the prompt."
+  (test-my-claude--with-followed-terminal window
+    (test-my-claude--selection-change window (split-window))
+    (should (test-my-claude--shows-prompt-p window))))
+
+(ert-deftest my-vterm-prompt-ignores-a-window-that-loses-selection ()
+  "A window that is no longer the selected window keeps its position."
+  (test-my-claude--with-followed-terminal window
+    (select-window (split-window))
+    (test-my-claude--selection-change window window)
+    (should (equal (test-my-claude--window-lines window) '(1 1)))))
+
+(ert-deftest my-vterm-prompt-ignores-a-selection-with-the-mouse ()
+  "A mouse event keeps the position, so that a drag selects the text."
+  (test-my-claude--with-followed-terminal window
+    (dolist (type '(down-mouse-1 mouse-1 drag-mouse-1 mouse-movement))
+      (let ((last-input-event (list type (posn-at-point nil window))))
+        (test-my-claude--selection-change window (split-window))
+        (should (equal (test-my-claude--window-lines window) '(1 1)))
+        (delete-other-windows window)))))
+
+(ert-deftest my-vterm-prompt-ignores-a-return-from-the-minibuffer ()
+  "A window keeps its position when its minibuffer returns the selection."
+  (test-my-claude--with-followed-terminal window
+    (test-my-claude--open-minibuffer window)
+    (test-my-claude--selection-change window (minibuffer-window))
+    (should (equal (test-my-claude--window-lines window) '(1 1)))))
+
+(ert-deftest my-vterm-prompt-ignores-a-return-from-nested-minibuffers ()
+  "A window keeps its position when nested minibuffers return the selection."
+  (test-my-claude--with-followed-terminal window
+    (test-my-claude--open-minibuffer window)
+    (test-my-claude--open-minibuffer (minibuffer-window))
+    (test-my-claude--selection-change window (minibuffer-window))
+    (should (equal (test-my-claude--window-lines window) '(1 1)))))
+
+(ert-deftest my-vterm-prompt-shows-after-a-minibuffer-of-another-window ()
+  "The window shows the prompt when another window opened the minibuffer.
+This is true even if the window opened an earlier minibuffer."
+  (test-my-claude--with-followed-terminal window
+    (test-my-claude--open-minibuffer window)
+    (test-my-claude--open-minibuffer (split-window))
+    (test-my-claude--selection-change window (minibuffer-window))
+    (should (test-my-claude--shows-prompt-p window))))
+
+(ert-deftest my-vterm-prompt-shows-when-the-minibuffer-went-elsewhere ()
+  "The window shows the prompt when another window had the selection.
+This is true even if the window opened a minibuffer earlier."
+  (test-my-claude--with-followed-terminal window
+    (test-my-claude--open-minibuffer window)
+    (test-my-claude--selection-change window (split-window))
+    (should (test-my-claude--shows-prompt-p window))))
+
+(ert-deftest my-vterm-selection-change-laws ()
+  "The window shows the prompt if it is selected, with two exceptions.
+A mouse event selected it, or the selection returns from a
+minibuffer whose most recent opener is the window.  A minibuffer
+does not count as an opener.  Otherwise nothing moves."
+  (test-my-claude--for-random-cases
+      ((selected (zerop (random 2)))
+       (event    (seq-random-elt '(nil ?x (mouse-1) (down-mouse-1))))
+       (openers  (cl-loop repeat (random 5)
+                          collect (seq-random-elt '(window other mini))))
+       (old      (seq-random-elt '(other mini)))
+       (returns  (and (eq old 'mini)
+                      (eq (car (last (remq 'mini openers))) 'window))))
+    (test-my-claude--with-followed-terminal window
+      (let* ((other   (split-window))
+             (windows `((window . ,window) (other . ,other)
+                        (mini . ,(minibuffer-window))))
+             (last-input-event event))
+        (dolist (opener openers)
+          (test-my-claude--open-minibuffer (alist-get opener windows)))
+        (unless selected (select-window other))
+        (test-my-claude--selection-change window (alist-get old windows))
+        (if (and selected (not (consp event)) (not returns))
+            (should (test-my-claude--shows-prompt-p window))
+          (should (equal (test-my-claude--window-lines window) '(1 1))))))))
+
+(ert-deftest my-vterm-show-prompt-counts-scaled-rows ()
+  "The last rows fill the window when its text is scaled.
+A batch Emacs cannot scale text, so the test scales the row count
+of the selected window."
+  (test-my-claude--with-terminal 300 294
+    (let ((window (selected-window)))
+      (cl-letf (((symbol-function 'window-screen-lines)
+                 (lambda () (if (eq (selected-window) window) 10.8 5.0))))
+        (with-selected-window (split-window)
+          (my--vterm-show-prompt window)))
+      (should (equal (test-my-claude--window-lines window) '(291 294))))))
+
+(ert-deftest my-vterm-prompt-does-not-move-other-buffers ()
+  "A buffer that is not a vterm buffer keeps its position."
+  (test-my-claude--with-followed-terminal window
+    (with-temp-buffer
+      (dotimes (_ 300) (insert "x\n"))
+      (test-my-claude--show-top window (current-buffer))
+      (run-hook-with-args 'window-buffer-change-functions window)
+      (test-my-claude--selection-change window (split-window))
+      (should (equal (test-my-claude--window-lines window) '(1 1))))))
+
 ;;; --- Integration: server name is deterministic ---
 
 (ert-deftest my-claude-server-name-deterministic ()

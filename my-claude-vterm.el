@@ -11,6 +11,7 @@
 ;; - Unnecessary terminal reflows on vertical-only resizes
 ;; - Suggestion text invisible (SGR 2 dim not supported by libvterm)
 ;; - No cursor cue when buffer is unfocused or in copy-mode
+;; - Prompt out of view when a window shows the buffer again (all vterm buffers)
 ;;
 ;; Techniques cherry-picked from claude-code.el and claudemacs.
 
@@ -32,6 +33,7 @@
 (declare-function vterm-send-key "vterm")
 (declare-function vterm-send "vterm")
 (declare-function vterm-send-next-key "vterm")
+(declare-function vterm-reset-cursor-point "vterm")
 (declare-function vterm--filter "vterm")
 
 (defgroup my-claude-vterm nil
@@ -523,6 +525,79 @@ Intended for `kill-buffer-hook'."
       (setq-local minor-mode-overriding-map-alist nil)
       ;; Restore our keymap — vterm replaces the local map on copy-mode exit
       (my--llm-vterm-setup-keymap))))
+
+
+;;;; ---------------------------------------------------------------
+;;;; Prompt visibility
+;;;; ---------------------------------------------------------------
+
+;; vterm scrolls only the selected window, and only when it redraws.
+;; A buffer that gets output while no window shows it comes back at
+;; its old position.
+
+(add-hook 'vterm-mode-hook #'my--vterm-follow-prompt)
+(add-hook 'minibuffer-setup-hook #'my--vterm-record-minibuffer-opener)
+
+(defun my--vterm-follow-prompt ()
+  "Show the prompt when a window shows this buffer or becomes selected."
+  (add-hook 'window-buffer-change-functions #'my--vterm-show-prompt nil t)
+  (add-hook 'window-selection-change-functions
+            #'my--vterm-selection-change nil t))
+
+(defun my--vterm-selection-change (window)
+  "Show the prompt in WINDOW if WINDOW is now the selected window.
+If the user selects WINDOW with the mouse, WINDOW keeps its
+position, because a drag must not scroll the text.  If the
+selection returns from a minibuffer that WINDOW opened, WINDOW
+also keeps its position."
+  (unless (or (not (eq window (selected-window)))
+              (mouse-event-p last-input-event)
+              (my--vterm-minibuffer-return-p window))
+    (my--vterm-show-prompt window)))
+
+(defvar my--vterm-minibuffer-opener nil
+  "The window that opened the most recent minibuffer.")
+
+(defun my--vterm-record-minibuffer-opener ()
+  "Record the window that opened the minibuffer.
+A minibuffer that another minibuffer opens does not count."
+  (let ((opener (minibuffer-selected-window)))
+    (unless (window-minibuffer-p opener)
+      (setq my--vterm-minibuffer-opener opener))))
+
+(defun my--vterm-minibuffer-return-p (window)
+  "Return non-nil if WINDOW gets the selection back from its minibuffer."
+  (and (window-minibuffer-p (old-selected-window))
+       (eq window my--vterm-minibuffer-opener)))
+
+(defun my--vterm-show-prompt (window)
+  "Show the terminal cursor and the last screen rows in WINDOW.
+Do nothing in `vterm-copy-mode'."
+  (with-current-buffer (window-buffer window)
+    (unless (bound-and-true-p vterm-copy-mode)
+      (set-window-point window (my--vterm-cursor-position))
+      (set-window-start
+       window (my--vterm-last-rows-start (my--vterm-window-rows window))))))
+
+(defun my--vterm-cursor-position ()
+  "Return the position of the terminal cursor in the current buffer."
+  (save-excursion
+    (vterm-reset-cursor-point)
+    (point)))
+
+(defun my--vterm-window-rows (window)
+  "Return the number of full rows that WINDOW shows at its text scale."
+  (with-selected-window window
+    (floor (window-screen-lines))))
+
+(defun my--vterm-last-rows-start (rows)
+  "Return the position where the last ROWS lines of the buffer start.
+vterm ends its buffer with a newline.  The empty line after that
+newline is not a screen row."
+  (save-excursion
+    (goto-char (point-max))
+    (forward-line (- (if (bolp) 0 1) rows))
+    (point)))
 
 
 ;;;; ---------------------------------------------------------------
