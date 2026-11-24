@@ -142,6 +142,25 @@ background; use its own exit path when that matters."
   (interactive)
   (my--llm-vterm-kill-current))
 
+;;;###autoload
+(defun vterm-directory ()
+  "Run vterm in a buffer named *vterm-<directory>*.
+<directory> is the last component of `default-directory'.  If
+that buffer exists, select it and do not start a second vterm.
+Two directories with the same last component share one buffer."
+  (interactive)
+  (let ((buf-name (my--vterm-directory-buffer-name default-directory)))
+    (if (get-buffer buf-name)
+        (pop-to-buffer buf-name)
+      (vterm buf-name))))
+
+(defun my--vterm-directory-buffer-name (directory)
+  "Return the vterm buffer name for DIRECTORY: *vterm-<last component>*.
+A root directory has no last component, so its full name is used."
+  (let* ((file-name (directory-file-name directory))
+         (last      (file-name-nondirectory file-name)))
+    (format "*vterm-%s*" (if (string-empty-p last) file-name last))))
+
 
 ;;;; ---------------------------------------------------------------
 ;;;; Server management

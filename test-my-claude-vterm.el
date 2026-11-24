@@ -178,6 +178,50 @@ without vterm."
   (skip-unless (require 'vterm nil t))
   (should (= vterm-max-scrollback 100000)))
 
+;;; --- vterm-directory ---
+
+(ert-deftest my-vterm-directory-buffer-name-example ()
+  "The buffer name holds the last component of the directory."
+  (should (string= (my--vterm-directory-buffer-name "/home/user/project/")
+                   "*vterm-project*")))
+
+(ert-deftest my-vterm-directory-buffer-name-root ()
+  "The root directory gives its own name, \"/\"."
+  (should (string= (my--vterm-directory-buffer-name "/") "*vterm-/*")))
+
+(ert-deftest my-vterm-directory-buffer-name-remote-root ()
+  "The root of a remote host gives the full remote root as its name."
+  (should (string= (my--vterm-directory-buffer-name "/ssh:host:/")
+                   "*vterm-/ssh:host:/*")))
+
+(ert-deftest my-vterm-directory-buffer-name-shared-last-component ()
+  "Two directories with the same last component share one name."
+  (should (string= (my--vterm-directory-buffer-name "/a/project/")
+                   (my--vterm-directory-buffer-name "/b/project/"))))
+
+(ert-deftest my-vterm-directory-starts-vterm-with-directory-name ()
+  "Starts vterm in a buffer named for `default-directory'."
+  (let ((default-directory "/tmp/some-project/")
+        (requested nil))
+    (cl-letf (((symbol-function 'vterm)
+               (lambda (&optional arg) (setq requested arg))))
+      (vterm-directory))
+    (should (equal requested "*vterm-some-project*"))))
+
+(ert-deftest my-vterm-directory-reuses-existing-buffer ()
+  "Selects the buffer for the directory when it exists already.
+No second vterm starts."
+  (let ((default-directory "/tmp/some-project/")
+        (started nil)
+        (buf (get-buffer-create "*vterm-some-project*")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'vterm)
+                   (lambda (&optional _) (setq started t))))
+          (vterm-directory)
+          (should-not started)
+          (should (eq (window-buffer (selected-window)) buf)))
+      (kill-buffer buf))))
+
 ;;; --- my--llm-env ---
 
 (ert-deftest my-llm-env-claude-disables-alternate-screen ()
@@ -277,6 +321,36 @@ without vterm."
                      (concat "EMACS_SOCKET_NAME="
                              (shell-quote-argument server) " "
                              (my--llm-vterm-launch-command command args))))))
+
+;;; --- my--vterm-directory-buffer-name ---
+
+(defun test-my-claude--random-component ()
+  "Return a directory component of 1 to 6 characters, some of them special."
+  (let ((chars "ab .-_é~%"))
+    (apply #'string
+           (cl-loop repeat (1+ (random 6))
+                    collect (aref chars (random (length chars)))))))
+
+(defun test-my-claude--random-directory (base)
+  "Return a random directory path whose last component is BASE.
+The path is absolute or relative, has 0 to 5 parent components,
+and ends in 0 to 3 slashes."
+  (concat (if (zerop (random 2)) "/" "")
+          (mapconcat (lambda (part) (concat part "/"))
+                     (cl-loop repeat (random 6)
+                              collect (test-my-claude--random-component))
+                     "")
+          base
+          (make-string (random 4) ?/)))
+
+(ert-deftest my-vterm-directory-buffer-name-laws ()
+  "Only the last directory component sets the name.
+Trailing slashes and the parent directories have no effect."
+  (test-my-claude--for-random-cases
+      ((base (test-my-claude--random-component))
+       (dir  (test-my-claude--random-directory base)))
+    (should (string= (my--vterm-directory-buffer-name dir)
+                     (concat "*vterm-" base "*")))))
 
 ;;; --- Key forwarding (keys Emacs intercepts before vterm) ---
 
