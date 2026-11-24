@@ -200,13 +200,18 @@ without vterm."
                    (my--vterm-directory-buffer-name "/b/project/"))))
 
 (ert-deftest my-vterm-directory-starts-vterm-with-directory-name ()
-  "Starts vterm in a buffer named for `default-directory'."
+  "Starts vterm in a buffer named for `default-directory'.
+The shell starts in that same directory."
   (let ((default-directory "/tmp/some-project/")
-        (requested nil))
+        (requested nil)
+        (start-directory nil))
     (cl-letf (((symbol-function 'vterm)
-               (lambda (&optional arg) (setq requested arg))))
+               (lambda (&optional arg)
+                 (setq requested arg
+                       start-directory default-directory))))
       (vterm-directory))
-    (should (equal requested "*vterm-some-project*"))))
+    (should (equal requested "*vterm-some-project*"))
+    (should (equal start-directory "/tmp/some-project/"))))
 
 (ert-deftest my-vterm-directory-reuses-existing-buffer ()
   "Selects the buffer for the directory when it exists already.
@@ -215,11 +220,12 @@ No second vterm starts."
         (started nil)
         (buf (get-buffer-create "*vterm-some-project*")))
     (unwind-protect
-        (cl-letf (((symbol-function 'vterm)
-                   (lambda (&optional _) (setq started t))))
-          (vterm-directory)
-          (should-not started)
-          (should (eq (window-buffer (selected-window)) buf)))
+        (save-window-excursion
+          (cl-letf (((symbol-function 'vterm)
+                     (lambda (&optional _) (setq started t))))
+            (vterm-directory)
+            (should-not started)
+            (should (eq (window-buffer (selected-window)) buf))))
       (kill-buffer buf))))
 
 ;;; --- my--llm-env ---
@@ -333,15 +339,24 @@ No second vterm starts."
 
 (defun test-my-claude--random-directory (base)
   "Return a random directory path whose last component is BASE.
-The path is absolute or relative, has 0 to 5 parent components,
-and ends in 0 to 3 slashes."
-  (concat (if (zerop (random 2)) "/" "")
-          (mapconcat (lambda (part) (concat part "/"))
+The path is relative, absolute, or remote.  It has 0 to 5 parent
+components, some of them \".\" or \"..\", with 1 or 2 slashes
+after each.  It ends in 0 to 3 slashes."
+  (concat (nth (random 3) '("" "/" "/ssh:host:/"))
+          (mapconcat (lambda (part)
+                       (concat part (make-string (1+ (random 2)) ?/)))
                      (cl-loop repeat (random 6)
-                              collect (test-my-claude--random-component))
+                              collect (test-my-claude--random-parent))
                      "")
           base
           (make-string (random 4) ?/)))
+
+(defun test-my-claude--random-parent ()
+  "Return a parent directory component: \".\", \"..\", or a random one."
+  (pcase (random 4)
+    (0 ".")
+    (1 "..")
+    (_ (test-my-claude--random-component))))
 
 (ert-deftest my-vterm-directory-buffer-name-laws ()
   "Only the last directory component sets the name.
