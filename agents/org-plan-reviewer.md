@@ -121,6 +121,13 @@ what to fix (by hand, or by re-running the relevant skill).
    - a `DONE` parent with one or more children still `TODO`,
      `IN-PROGRESS`, `HELD`, or `BLOCKED`: flag as inconsistent — a parent is complete
      only when all of its children are terminal.
+   - a `TODO` parent with one or more children that are not terminal and
+     one or more descendants that are `IN-PROGRESS` or `DONE`: flag that
+     the parent must be `IN-PROGRESS`. A blocker is open when its state
+     is not `DONE` and not `CANCELED`. If the parent has no open blocker,
+     the fix is to run `org-plan-sync`. If the parent has an open
+     blocker, flag that a person must decide: set the parent to
+     `BLOCKED`, or remove the dependency.
    - a `DONE` epic still in `PLAN.org` where every descendant is terminal
      and no active issue references it: not a violation per se, but worth
      noting as "archivable" so the user knows `org-plan-archive` has work
@@ -131,8 +138,10 @@ what to fix (by hand, or by re-running the relevant skill).
 A blocker is open when its state is not `DONE` and not `CANCELED`. Find
 blockers by the `CUSTOM_ID` in each `:BLOCKED-BY:` link, in `PLAN.org`
 and `COMPLETED.org`. A link that does not resolve has no blocker. Check
-15 reports it, and check 17 ignores it. If `COMPLETED.org` is absent,
-look for blockers only in `PLAN.org`.
+15 reports it. `org-plan-sync` does not unblock an item with such a
+link, so check 17 does not tell you to run `org-plan-sync` for that
+item. If `COMPLETED.org` is absent, look for blockers only in
+`PLAN.org`.
 
 15. **`:BLOCKED-BY:` resolves** — each link in a `:BLOCKED-BY:` value
     must resolve to a `:CUSTOM_ID:` in the file that the link names. Flag
@@ -158,8 +167,13 @@ look for blockers only in `PLAN.org`.
       inconsistent. Nothing can unblock it. The fix is to add the
       dependency with `org-plan-depend`, or to set the item to `TODO` or
       `HELD`.
-    - a `BLOCKED` item whose blockers are all `DONE`: flag as an unblock
-      that should have occurred. The fix is to run `org-plan-sync`.
+    - a `BLOCKED` item whose `:BLOCKED-BY:` links all resolve and whose
+      blockers are all `DONE`: flag that the item must be `TODO`. The
+      fix is to run `org-plan-sync`.
+    - a `BLOCKED` item with one or more links that do not resolve, and
+      no open or `CANCELED` blocker: do not flag it in this check. Check
+      15 reports the link. After a person repairs or removes the link,
+      `org-plan-sync` can unblock the item.
     - a `BLOCKED` item with one or more `CANCELED` blockers: flag as
       needing a human decision (remove the dependency, or cancel the
       item).
