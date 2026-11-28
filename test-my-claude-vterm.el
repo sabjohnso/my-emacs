@@ -1048,5 +1048,399 @@ of the selected window."
   (should (string= (my--claude-server-name)
                     (my--claude-server-name))))
 
+;;; --- Session lookup: generators and fixtures ---
+
+(defun test-my-claude--random-parent-map ()
+  "Return a random parent map from PIDs 0 to 7 to a parent PID or nil.
+The map can contain cycles, PIDs that are their own parent, and
+parents that the map does not contain."
+  (let ((map (make-hash-table)))
+    (dotimes (pid 8)
+      (unless (zerop (random 4))
+        (puthash pid (and (not (zerop (random 4))) (random 10)) map)))
+    map))
+
+(defun test-my-claude--parent-fn (map)
+  "Return a parent function that looks up a PID in MAP."
+  (lambda (pid) (gethash pid map)))
+
+(defun test-my-claude--random-pids ()
+  "Return a list of 0 to 5 random PIDs from 0 to 9."
+  (cl-loop repeat (random 6) collect (random 10)))
+
+(defun test-my-claude--random-pid-alist ()
+  "Return an alist of 0 to 5 random PIDs to distinct symbols."
+  (cl-loop for i below (random 6)
+           collect (cons (random 10) (intern (format "buffer-%d" i)))))
+
+(defmacro test-my-claude--with-buffers (vars &rest body)
+  "Run BODY with each of VARS bound to a new buffer.
+Kill the buffers after BODY."
+  (declare (indent 1))
+  `(let ,(mapcar (lambda (var)
+                   `(,var (generate-new-buffer ,(format " *test-%s*" var))))
+                 vars)
+     (unwind-protect (progn ,@body)
+       (dolist (buffer (list ,@vars))
+         (when (buffer-live-p buffer)
+           (kill-buffer buffer))))))
+
+(defmacro test-my-claude--with-process-buffer (var &rest body)
+  "Run BODY with VAR bound to a buffer that runs a sleep process."
+  (declare (indent 1))
+  `(test-my-claude--with-buffers (,var)
+     (set-process-query-on-exit-flag
+      (start-process "test-session" ,var "sleep" "60") nil)
+     ,@body))
+
+(defmacro test-my-claude--with-layout (&rest body)
+  "Run BODY in one window, and restore the window layout after BODY."
+  (declare (indent 0))
+  `(save-window-excursion
+     (delete-other-windows)
+     ,@body))
+
+;;; --- my--claude-ancestor-pids ---
+
+(ert-deftest my-claude-ancestor-pids-stops-at-pid-1 ()
+  "The chain of PID 1 is PID 1 alone, even when PID 1 has a parent."
+  (should (equal (my--claude-ancestor-pids 1 (lambda (_) 0)) '(1))))
+
+(ert-deftest my-claude-ancestor-pids-follows-parents ()
+  "The chain follows each parent until a PID has no parent."
+  (should (equal (my--claude-ancestor-pids
+                  30 (lambda (pid) (alist-get pid '((30 . 20) (20 . 10)))))
+                 '(30 20 10))))
+
+(ert-deftest my-claude-ancestor-pids-laws ()
+  "The chain starts at PID, follows parents, ends, and has no repeats."
+  (test-my-claude--for-random-cases
+      ((map    (test-my-claude--random-parent-map))
+       (parent (test-my-claude--parent-fn map))
+       (pid    (random 10))
+       (chain  (my--claude-ancestor-pids pid parent))
+       (last   (car (last chain))))
+    (should (eql (car chain) pid))
+    (cl-loop for (child next) on chain while next
+             do (should (eql (funcall parent child) next)))
+    (should (or (eql last 1)
+                (null (funcall parent last))
+                (memql (funcall parent last) chain)))
+    (should-not (memql 1 (butlast chain)))
+    (should (equal chain (seq-uniq chain)))
+    (should (<= (length chain) (1+ (hash-table-count map))))))
+
+;;; --- my--claude-process-parent-pid ---
+
+(ert-deftest my-claude-process-parent-pid-of-emacs ()
+  "The chain of this Emacs ends at PID 1 or at a PID with no parent."
+  (let ((last (car (last (my--claude-ancestor-pids
+                          (emacs-pid) #'my--claude-process-parent-pid)))))
+    (should (or (eql last 1) (null (my--claude-process-parent-pid last))))))
+
+(ert-deftest my-claude-process-parent-pid-of-missing-process ()
+  "A PID with no process has no parent."
+  (should-not (my--claude-process-parent-pid 999999999)))
+
+;;; --- my--claude-match-session-buffer ---
+
+(ert-deftest my-claude-match-session-buffer-nearest-wins ()
+  "When two PIDs match, the buffer of the PID first in the chain wins."
+  (should (eq (my--claude-match-session-buffer
+               '(5 4 3) '((3 . far) (4 . near)))
+              'near)))
+
+(ert-deftest my-claude-match-session-buffer-laws ()
+  "The result belongs to the first PID in the chain that has a buffer."
+  (test-my-claude--for-random-cases
+      ((pids   (test-my-claude--random-pids))
+       (alist  (test-my-claude--random-pid-alist))
+       (first  (seq-find (lambda (pid) (assq pid alist)) pids))
+       (result (my--claude-match-session-buffer pids alist)))
+    (if first
+        (should (eq result (cdr (assq first alist))))
+      (should-not result))))
+
+;;; --- my--claude-session-buffer ---
+
+(ert-deftest my-claude-session-buffer-finds-process-buffer ()
+  "The PID of a buffer process finds that buffer."
+  (test-my-claude--with-process-buffer buffer
+    (should (eq (my--claude-session-buffer
+                 (process-id (get-buffer-process buffer)))
+                buffer))))
+
+(ert-deftest my-claude-session-buffer-ignores-killed-buffer ()
+  "A killed buffer never matches."
+  (let (pid)
+    (test-my-claude--with-process-buffer buffer
+      (setq pid (process-id (get-buffer-process buffer))))
+    (should-not (my--claude-session-buffer pid))))
+
+(ert-deftest my-claude-session-buffer-no-match ()
+  "The chain of this Emacs contains no buffer process."
+  (should-not (my--claude-session-buffer (emacs-pid))))
+
+(ert-deftest my-claude-session-buffer-laws ()
+  "The lookup matches the parent chain of PID against the process buffers."
+  (test-my-claude--for-random-cases
+      ((map    (test-my-claude--random-parent-map))
+       (parent (test-my-claude--parent-fn map))
+       (alist  (test-my-claude--random-pid-alist))
+       (pid    (random 10)))
+    (cl-letf (((symbol-function 'my--claude-process-parent-pid) parent)
+              ((symbol-function 'my--claude-process-buffer-alist)
+               (lambda () alist)))
+      (should (eq (my--claude-session-buffer pid)
+                  (my--claude-match-session-buffer
+                   (my--claude-ancestor-pids pid parent) alist))))))
+
+;;; --- my--claude-most-recent-window ---
+
+(ert-deftest my-claude-most-recent-window-empty ()
+  "An empty list has no most recent window."
+  (should-not (my--claude-most-recent-window nil)))
+
+(ert-deftest my-claude-most-recent-window-laws ()
+  "The result is the first window with the largest use time."
+  (test-my-claude--for-random-cases
+      ((times   (cl-loop repeat (1+ (random 5)) collect (random 4)))
+       (windows (number-sequence 0 (1- (length times)))))
+    (cl-letf (((symbol-function 'window-use-time)
+               (lambda (window) (nth window times))))
+      (should (eql (my--claude-most-recent-window windows)
+                   (seq-position times (apply #'max times)))))))
+
+;;; --- my--claude-session-window and my--claude-work-window ---
+
+(defun test-my-claude--work-window (session)
+  "Return the work window next to the session buffer SESSION, or nil."
+  (let ((window (my--claude-session-window session)))
+    (and window (my--claude-work-window window))))
+
+(defun test-my-claude--eligible-windows (session-window)
+  "Return the windows in the frame of SESSION-WINDOW that show another buffer.
+The order is the order of `my--claude-work-window'."
+  (seq-remove (lambda (window)
+                (eq (window-buffer window) (window-buffer session-window)))
+              (window-list (window-frame session-window) 'never
+                           (frame-first-window session-window))))
+
+(defun test-my-claude--random-layout (buffers)
+  "Split the selected frame at random and show one of BUFFERS in each window.
+Then select windows at random, so that the windows get use times."
+  (dotimes (_ (random 5))
+    (let ((windows (window-list nil 'never)))
+      (ignore-errors
+        (split-window (nth (random (length windows)) windows)
+                      nil (zerop (random 2))))))
+  (dolist (window (window-list nil 'never))
+    (set-window-buffer window (nth (random (length buffers)) buffers)))
+  (let ((windows (window-list nil 'never)))
+    (dotimes (_ (random 6))
+      (select-window (nth (random (length windows)) windows)))))
+
+(ert-deftest my-claude-session-window-not-shown ()
+  "When no window shows the session buffer, there is no session window."
+  (test-my-claude--with-buffers (session)
+    (test-my-claude--with-layout
+      (split-window)
+      (should-not (my--claude-session-window session)))))
+
+(ert-deftest my-claude-work-window-one-other-window ()
+  "With one other window, that window is the work window."
+  (test-my-claude--with-buffers (session)
+    (test-my-claude--with-layout
+      (let ((work (selected-window))
+            (other (split-window)))
+        (set-window-buffer other session)
+        (should (eq (test-my-claude--work-window session) work))))))
+
+(ert-deftest my-claude-work-window-most-recent ()
+  "Of two other windows, the most recently used one is the work window."
+  (test-my-claude--with-buffers (session)
+    (test-my-claude--with-layout
+      (let* ((older (selected-window))
+             (newer (split-window))
+             (shown (split-window newer)))
+        (set-window-buffer shown session)
+        (select-window older)
+        (select-window newer)
+        (select-window shown)
+        (should (eq (test-my-claude--work-window session) newer))))))
+
+(ert-deftest my-claude-work-window-no-other-window ()
+  "When the session buffer fills the frame, there is no work window."
+  (test-my-claude--with-buffers (session)
+    (test-my-claude--with-layout
+      (set-window-buffer (selected-window) session)
+      (should-not (test-my-claude--work-window session)))))
+
+(ert-deftest my-claude-work-window-laws ()
+  "The work window is the first most recent eligible window."
+  (test-my-claude--with-buffers (session a b)
+    (test-my-claude--for-random-cases
+        ((result nil))
+      (test-my-claude--with-layout
+        (test-my-claude--random-layout (list session a b))
+        (setq result (test-my-claude--work-window session))
+        (let* ((shown    (get-buffer-window-list session 'never t))
+               (eligible (and shown (test-my-claude--eligible-windows
+                                     (car shown))))
+               (latest   (and eligible
+                              (apply #'max (mapcar #'window-use-time
+                                                   eligible)))))
+          (should (eq result
+                      (seq-find (lambda (window)
+                                  (= (window-use-time window) latest))
+                                eligible))))))))
+
+;;; --- my--claude-line-position ---
+
+(ert-deftest my-claude-line-position-laws ()
+  "The position of LINE is the start of LINE."
+  (test-my-claude--for-random-cases
+      ((count (1+ (random 6)))
+       (line  (1+ (random count))))
+    (with-temp-buffer
+      (dotimes (i count)
+        (insert (format "line %d\n" (1+ i))))
+      (goto-char (my--claude-line-position (current-buffer) line))
+      (should (bolp))
+      (should (= (line-number-at-pos) line)))))
+
+(ert-deftest my-claude-line-position-past-end ()
+  "A line after the last line gives the end of the buffer."
+  (with-temp-buffer
+    (insert "line 1\nline 2\n")
+    (should (= (my--claude-line-position (current-buffer) 9) (point-max)))))
+
+;;; --- Session entry points ---
+
+(defmacro test-my-claude--with-session-layout (names &rest body)
+  "Run BODY with a session window next to a work window.
+NAMES is (SESSION PID SESSION-WINDOW WORK-WINDOW).  SESSION is a
+buffer that runs a sleep process, and PID is the PID of that
+process.  SESSION-WINDOW shows SESSION.  WORK-WINDOW is the selected
+window, and it shows a buffer with the text \"work text\"."
+  (declare (indent 1))
+  (pcase-let ((`(,session ,pid ,session-window ,work-window) names)
+              (work (make-symbol "work")))
+    `(test-my-claude--with-process-buffer ,session
+       (test-my-claude--with-buffers (,work)
+         (test-my-claude--with-layout
+           (let* ((,work-window    (selected-window))
+                  (,session-window (split-window))
+                  (,pid            (process-id (get-buffer-process ,session))))
+             (with-current-buffer ,work
+               (insert "work text"))
+             (set-window-buffer ,work-window ,work)
+             (set-window-buffer ,session-window ,session)
+             ,@body))))))
+
+(defmacro test-my-claude--with-temp-file (var &rest body)
+  "Run BODY with VAR bound to a file of five numbered lines."
+  (declare (indent 1))
+  `(let ((,var (make-temp-file "test-session" nil ".txt"
+                               "line 1\nline 2\nline 3\nline 4\nline 5\n")))
+     (unwind-protect (progn ,@body)
+       (let ((buffer (find-buffer-visiting ,var)))
+         (when buffer (kill-buffer buffer)))
+       (delete-file ,var))))
+
+(defun test-my-claude--user-error-message (form-fn)
+  "Call FORM-FN and return the message of the `user-error' it signals."
+  (condition-case err
+      (progn (funcall form-fn) nil)
+    (user-error (cadr err))))
+
+(ert-deftest my-claude-session-read-buffer-reads-work-window ()
+  "The text comes from the buffer in the work window of the session."
+  (test-my-claude--with-session-layout (_session pid _session-window _work)
+    (should (string= (my-claude-session-read-buffer pid) "work text"))))
+
+(ert-deftest my-claude-session-read-buffer-reads-whole-buffer ()
+  "A narrowed work buffer gives all of its text."
+  (test-my-claude--with-session-layout (_session pid _session-window work)
+    (with-current-buffer (window-buffer work)
+      (narrow-to-region 1 3))
+    (should (string= (my-claude-session-read-buffer pid) "work text"))))
+
+(ert-deftest my-claude-session-read-buffer-no-session ()
+  "A PID with no session buffer signals a user error."
+  (should-error (my-claude-session-read-buffer (emacs-pid))
+                :type 'user-error))
+
+(ert-deftest my-claude-session-read-buffer-session-not-shown ()
+  "A session buffer that no window shows gives the matching message."
+  (test-my-claude--with-session-layout (_session pid session-window _work)
+    (delete-window session-window)
+    (should (equal (test-my-claude--user-error-message
+                    (lambda () (my-claude-session-read-buffer pid)))
+                   "No window shows the session buffer"))))
+
+(ert-deftest my-claude-session-read-buffer-no-work-window ()
+  "A session buffer with no window next to it gives the matching message."
+  (test-my-claude--with-session-layout (_session pid _session-window work)
+    (delete-window work)
+    (should (equal (test-my-claude--user-error-message
+                    (lambda () (my-claude-session-read-buffer pid)))
+                   "No window shows another buffer next to the session"))))
+
+(ert-deftest my-claude-session-open-file-uses-work-window ()
+  "The file shows at LINE in the work window, and the selection stays."
+  (test-my-claude--with-temp-file file
+    (test-my-claude--with-session-layout (session pid session-window work)
+      (let ((older (split-window work)))
+        (select-window older)
+        (select-window work)
+        (should (eq (my-claude-session-open-file pid file 3) work))
+        (should (eq (selected-window) work))
+        (should (eq (window-buffer session-window) session))
+        (should-not (eq (window-buffer older) (find-buffer-visiting file)))
+        (should (eq (window-buffer work) (find-buffer-visiting file)))
+        (should (= (with-current-buffer (window-buffer work)
+                     (line-number-at-pos (window-point work)))
+                   3))))))
+
+(ert-deftest my-claude-session-open-file-without-work-window ()
+  "With no work window, `display-buffer' shows the file in a new window."
+  (test-my-claude--with-temp-file file
+    (test-my-claude--with-session-layout (session pid session-window work)
+      (delete-window work)
+      (let* ((display-buffer-alist        nil)
+             (display-buffer-base-action  '(nil))
+             (split-width-threshold       nil)
+             (split-height-threshold      4)
+             (window (my-claude-session-open-file pid file 1)))
+        (should (eq (selected-window) session-window))
+        (should (eq (window-buffer session-window) session))
+        (should (eq (window-buffer window) (find-buffer-visiting file)))))))
+
+(ert-deftest my-claude-session-open-file-no-session ()
+  "A PID with no session buffer signals a user error."
+  (test-my-claude--with-temp-file file
+    (should-error (my-claude-session-open-file (emacs-pid) file 1)
+                  :type 'user-error)))
+
+(ert-deftest my-claude-session-open-file-session-not-shown ()
+  "A session buffer that no window shows signals a user error."
+  (test-my-claude--with-temp-file file
+    (test-my-claude--with-session-layout (_session pid session-window _work)
+      (delete-window session-window)
+      (should-error (my-claude-session-open-file pid file 1)
+                    :type 'user-error))))
+
+(ert-deftest my-claude-session-open-file-no-window-for-file ()
+  "When no work window exists and `display-buffer' finds no window,
+a user error results."
+  (test-my-claude--with-temp-file file
+    (test-my-claude--with-session-layout (_session pid _session-window work)
+      (delete-window work)
+      (let ((display-buffer-overriding-action
+             '((display-buffer-no-window) (allow-no-window . t))))
+        (should-error (my-claude-session-open-file pid file 1)
+                      :type 'user-error)))))
+
 (provide 'test-my-claude-vterm)
 ;;; test-my-claude-vterm.el ends here

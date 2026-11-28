@@ -250,6 +250,129 @@ will find the correct server automatically."
 
 
 ;;;; ---------------------------------------------------------------
+;;;; Session lookup
+;;;; ---------------------------------------------------------------
+
+;; One Emacs server can serve several Claude Code sessions.  The
+;; socket identifies the server, not the session.  A shell of a
+;; session gives its process ID (PID); the chain of parent processes
+;; of that PID contains the vterm process of the session buffer.
+
+(defun my-claude-session-read-buffer (pid)
+  "Return the text of the buffer that the user works in next to PID.
+PID is the PID of a shell in a Claude Code session.  The buffer is
+the one in the window of `my--claude-work-window'."
+  (let ((work (my--claude-work-window (my--claude-require-session-window pid))))
+    (unless work
+      (user-error "No window shows another buffer next to the session"))
+    (with-current-buffer (window-buffer work)
+      (save-restriction
+        (widen)
+        (buffer-substring-no-properties (point-min) (point-max))))))
+
+(defun my-claude-session-open-file (pid file line)
+  "Show FILE at LINE next to the session of PID, and return the window.
+PID is the PID of a shell in a Claude Code session.  The selected
+window does not change."
+  (let* ((buffer (find-file-noselect file))
+         (window (my--claude-show-next-to
+                  (my--claude-require-session-window pid) buffer)))
+    (set-window-point window (my--claude-line-position buffer line))
+    window))
+
+(defun my--claude-require-session-window (pid)
+  "Return the session window of PID, or signal a `user-error'."
+  (or (my--claude-session-window (my--claude-require-session pid))
+      (user-error "No window shows the session buffer")))
+
+(defun my--claude-require-session (pid)
+  "Return the session buffer of PID, or signal a `user-error'."
+  (or (my--claude-session-buffer pid)
+      (user-error "No Claude Code session buffer for PID %d" pid)))
+
+(defun my--claude-session-buffer (pid)
+  "Return the buffer whose process is PID or a parent of PID.
+Return nil when no buffer has such a process."
+  (my--claude-match-session-buffer
+   (my--claude-ancestor-pids pid #'my--claude-process-parent-pid)
+   (my--claude-process-buffer-alist)))
+
+(defun my--claude-ancestor-pids (pid parent-fn)
+  "Return the list of PID and its parent PIDs, nearest first.
+PARENT-FN takes a PID and returns its parent PID or nil.  The list
+ends at PID 1, at a PID with no parent, or before a PID that the
+list already contains."
+  (cl-loop for current = pid then (funcall parent-fn current)
+           while (and current (not (memql current chain)))
+           collect current into chain
+           until (eql current 1)
+           finally return chain))
+
+(defun my--claude-process-parent-pid (pid)
+  "Return the parent PID of the process PID, or nil."
+  (alist-get 'ppid (process-attributes pid)))
+
+(defun my--claude-match-session-buffer (pids pid-buffer-alist)
+  "Return the buffer of the first of PIDS in PID-BUFFER-ALIST, or nil."
+  (seq-some (lambda (pid) (alist-get pid pid-buffer-alist)) pids))
+
+(defun my--claude-process-buffer-alist ()
+  "Return an alist from the PID of each process to its live buffer.
+A killed buffer can stay in a process until the process exits, so
+skip processes whose buffer is not live."
+  (cl-loop for process in (process-list)
+           for buffer = (process-buffer process)
+           when (buffer-live-p buffer)
+           collect (cons (process-id process) buffer)))
+
+(defun my--claude-session-window (buffer)
+  "Return the most recently used window that shows BUFFER, or nil."
+  (my--claude-most-recent-window (get-buffer-window-list buffer 'never t)))
+
+(defun my--claude-work-window (session-window)
+  "Return the window that the user works in next to SESSION-WINDOW, or nil.
+The result is the most recently used window in the frame of
+SESSION-WINDOW that does not show the buffer of SESSION-WINDOW."
+  (let ((session (window-buffer session-window)))
+    (my--claude-most-recent-window
+     (seq-remove (lambda (window) (eq (window-buffer window) session))
+                 (window-list (window-frame session-window) 'never
+                              (frame-first-window session-window))))))
+
+(defun my--claude-most-recent-window (windows)
+  "Return the window of WINDOWS with the largest use time, or nil.
+On a tie, return the first such window."
+  (seq-reduce (lambda (best window)
+                (if (or (null best)
+                        (> (window-use-time window) (window-use-time best)))
+                    window
+                  best))
+              windows nil))
+
+(defun my--claude-show-next-to (session-window buffer)
+  "Show BUFFER next to SESSION-WINDOW and return the window that shows it.
+Use the window of `my--claude-work-window'.  When there is no such
+window, let `display-buffer' find a window other than SESSION-WINDOW.
+Signal a `user-error' when no window can show BUFFER."
+  (let ((work (my--claude-work-window session-window)))
+    (if work
+        (with-selected-window work
+          (switch-to-buffer buffer t t)
+          work)
+      (or (with-selected-window session-window
+            (display-buffer buffer '(nil (inhibit-same-window . t))))
+          (user-error "No window can show %s" (buffer-name buffer))))))
+
+(defun my--claude-line-position (buffer line)
+  "Return the position of the start of LINE in BUFFER."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (forward-line (1- line))
+      (point))))
+
+
+;;;; ---------------------------------------------------------------
 ;;;; Buffer setup
 ;;;; ---------------------------------------------------------------
 
