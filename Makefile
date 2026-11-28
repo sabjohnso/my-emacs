@@ -24,7 +24,7 @@ BATCH_FULL = $(BATCH) \
   -L $(PCRE2EL_DIR) \
   $(PKG_INIT)
 
-COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el my-granule-mode.el my-reading-mode.el
+COMPILE_FILES = my-racket-extras.el my-gptel.el my-closet.el my-granule-mode.el my-reading-mode.el my-fold-ellipsis.el
 
 # Claude Code plugin. The marketplace manifest owns both names, and the
 # CLI resolves the plugin through it. Read the names; do not repeat them.
@@ -38,7 +38,7 @@ PLUGIN_ID         = $(PLUGIN)@$(MARKETPLACE)
 manifest-field = $(or $(shell jq -er '$(1)' $(MARKETPLACE_JSON) 2>/dev/null),\
   $(error No $(1) in $(MARKETPLACE_JSON)))
 
-.PHONY: all compile test test-themes test-gptel test-claude-vterm test-reading-mode
+.PHONY: all compile test test-themes test-gptel test-claude-vterm test-reading-mode test-fold-ellipsis
 .PHONY: test-plugin-make plugin-install plugin-update help
 
 all: compile ## Byte-compile the Emacs Lisp files (default)
@@ -47,7 +47,7 @@ compile: ## Byte-compile the Emacs Lisp files
 	$(BATCH_FULL) $(patsubst %,-l %,$(COMPILE_FILES)) \
 	  --eval '(batch-byte-compile)' $(COMPILE_FILES)
 
-test: test-themes test-gptel test-claude-vterm test-reading-mode test-plugin-make ## Run all tests
+test: test-themes test-gptel test-claude-vterm test-reading-mode test-fold-ellipsis test-plugin-make ## Run all tests
 
 test-themes: ## Run the theme tests
 	$(BATCH) -l test-my-themes.el -f ert-run-tests-batch-and-exit
@@ -60,6 +60,9 @@ test-claude-vterm: ## Run the Claude vterm tests
 
 test-reading-mode: ## Run the reading mode tests
 	$(BATCH) -l test-my-reading-mode.el -f ert-run-tests-batch-and-exit
+
+test-fold-ellipsis: ## Run the fold ellipsis tests
+	$(BATCH) -l test-my-fold-ellipsis.el -f ert-run-tests-batch-and-exit
 
 test-plugin-make: ## Run the Makefile tests
 	./test-plugin-make.sh

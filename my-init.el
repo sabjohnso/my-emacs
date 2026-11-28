@@ -960,6 +960,8 @@ commands to use in that buffer."
 (require 'my-common-lisp-extras)
 (require 'my-granule-mode)
 (require 'my-reading-mode)
+(require 'my-fold-ellipsis)
+(my-fold-ellipsis-setup)
 (require 'my-gptel)
 (require 'my-claude-vterm)
 

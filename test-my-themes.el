@@ -617,5 +617,32 @@
           (should (my-theme-test--face-themed-p face theme)))
       (disable-theme theme))))
 
+;;; --- Fold ellipsis tests ---
+
+(defvar my-theme-test--ellipsis-faces '(my-fold-ellipsis org-ellipsis)
+  "The faces that show a fold.  Each theme must give them the ellipsis color.")
+
+(defun my-theme-test--theme-attribute (face theme attribute)
+  "Return ATTRIBUTE of the spec that THEME gives FACE."
+  (let ((spec (cadr (assq theme (get face 'theme-face)))))
+    (plist-get (face-spec-choose spec) attribute)))
+
+(ert-deftest my-theme-all-give-fold-faces-the-ellipsis-color ()
+  "Every theme gives each fold face the ellipsis color of its palette, in bold.
+The test reads the theme spec, because the face `org-ellipsis' does
+not exist until Org loads."
+  (dolist (variant my-theme-test--all-variants)
+    (let ((theme (intern (format "my-%s" variant)))
+          (color (alist-get 'ellipsis (my-theme-palette variant))))
+      (should (stringp color))
+      (load-theme theme t)
+      (unwind-protect
+          (dolist (face my-theme-test--ellipsis-faces)
+            (should (equal color (my-theme-test--theme-attribute
+                                  face theme :foreground)))
+            (should (eq 'bold (my-theme-test--theme-attribute
+                               face theme :weight))))
+        (disable-theme theme)))))
+
 (provide 'test-my-themes)
 ;;; test-my-themes.el ends here
